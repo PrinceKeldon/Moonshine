@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "KEEL",
+      "hasCanvas": false,
+      "bodyTextLen": 20950,
+      "bodyTextHash": "de7f9f7493d1e688547505d25fb3b45fda2c81d4f7a1c0199d8bdc7b5d610ba0",
+      "bodyTextPrefix": "KEEL Capital stays first PAPER Public tape live 02:30:00 Pause R",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "KEEL",
+      "hasCanvas": false,
+      "bodyTextLen": 1365,
+      "bodyTextHash": "53858d58f529d7fa9b3b142fe6a556585147eceb9d78d027dbd044c8cda442a9",
+      "bodyTextPrefix": "KEEL Capital stays first PAPER Public tape live 02:30:00 Pause R",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
