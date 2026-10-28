@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "KEEL",
+      "hasCanvas": false,
+      "bodyTextLen": 94,
+      "bodyTextHash": "1f248fde3346d6f3e9182cc1c26e69291536f1e156cc02b52ae56be879787dca",
+      "bodyTextPrefix": "KEEL Opening the paper book Scout, Filter, Analyst, Executor, Ri",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "KEEL",
+      "hasCanvas": false,
+      "bodyTextLen": 94,
+      "bodyTextHash": "1f248fde3346d6f3e9182cc1c26e69291536f1e156cc02b52ae56be879787dca",
+      "bodyTextPrefix": "KEEL Opening the paper book Scout, Filter, Analyst, Executor, Ri",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

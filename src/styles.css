@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --color-bg: #10130e;
+  --color-surface: #171b13;
+  --color-raised: #22281b;
+  --color-line: #343c2c;
+  --color-fg: #e7eedc;
+  --color-muted: #a3b096;
+  --color-dim: #7d8870;
+  --color-up: #b6e36a;
+  --color-down: #e07a62;
+  --color-amber: #e2b15a;
+  --color-ink: #14180f;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-bg);
+    color: var(--color-fg);
+    line-height: 1.5;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  a:focus-visible,
+  input:focus-visible {
+    outline: 2px solid var(--color-up);
+    outline-offset: 2px;
+  }
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+
+@keyframes keel-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.keel-pulse {
+  animation: keel-pulse 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .keel-pulse {
+    animation: none;
+  }
+}

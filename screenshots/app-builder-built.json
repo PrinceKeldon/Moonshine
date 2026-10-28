@@ -1,0 +1,40 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "KEEL",
+      "hasCanvas": false,
+      "bodyTextLen": 94,
+      "bodyTextHash": "1f248fde3346d6f3e9182cc1c26e69291536f1e156cc02b52ae56be879787dca",
+      "bodyTextPrefix": "KEEL Opening the paper book Scout, Filter, Analyst, Executor, Ri",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "KEEL",
+      "hasCanvas": false,
+      "bodyTextLen": 1346,
+      "bodyTextHash": "322db9fafed3e5dd6b82a14ff7e554f046ede6fc15daead080601f3e1cd761de",
+      "bodyTextPrefix": "KEEL Capital stays first PAPER Public tape connecting 02:30:00 P",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": true,
+  "baselineReasons": [
+    "mobile: body text changed (94 -> 1346 chars, hash mismatch)"
+  ]
+}
