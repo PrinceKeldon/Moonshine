@@ -184,6 +184,8 @@ export function createDesk(seed = 0x4b45454c): DeskState {
     breaches: [],
     publicTape: "idle",
     tapeNote: "Public tape has not reported yet. Indexed launches still run.",
+    watchAddress: "",
+    watch: null,
   };
 }
 

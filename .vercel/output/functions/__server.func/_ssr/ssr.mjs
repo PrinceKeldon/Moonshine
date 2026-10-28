@@ -103,7 +103,7 @@ var HEADERS = { TSS_SHELL: "X-TSS_SHELL" };
 * the dev styles URL for route-scoped CSS collection.
 */
 async function getStartManifest(matchedRoutes) {
-	const { tsrStartManifest } = await import("../_tanstack-start-manifest_v-xImy6fs4.mjs");
+	const { tsrStartManifest } = await import("../_tanstack-start-manifest_v-CYzXMFnL.mjs");
 	const startManifest = tsrStartManifest();
 	let routes = startManifest.routes;
 	routes[rootRouteId];
@@ -122,10 +122,16 @@ async function getStartManifest(matchedRoutes) {
 		routes: manifestRoutes
 	};
 }
-var manifest = { "1c636824bf6aa89498ed10efb134f011b2de42d34dcbdd2c82d81397403c4021": {
-	functionName: "fetchPublicTape_createServerFn_handler",
-	importer: () => import("./public-tape-9f3vPcFG.mjs")
-} };
+var manifest = {
+	"1c636824bf6aa89498ed10efb134f011b2de42d34dcbdd2c82d81397403c4021": {
+		functionName: "fetchPublicTape_createServerFn_handler",
+		importer: () => import("./public-tape-DZDzkfVc.mjs")
+	},
+	"90871f9f5928875fa77ba1a07a866f9f1217d8be682fbc70e006900d6459d2d2": {
+		functionName: "fetchWallet_createServerFn_handler",
+		importer: () => import("./wallet-dpDgxYbF.mjs")
+	}
+};
 async function getServerFnById(id, access) {
 	const serverFnInfo = manifest[id];
 	if (!serverFnInfo) throw new Error("Server function info not found for " + id);
@@ -1528,7 +1534,7 @@ var getBaseManifest = getProdBaseManifest;
 var createEarlyHintsForRequest = createEarlyHintsCollector;
 async function loadEntries() {
 	const [routerEntry, startEntry, pluginAdapters] = await Promise.all([
-		import("./router-c3bpawKM.mjs").then((n) => n.t),
+		import("./router-B5uHUqQd.mjs").then((n) => n.t),
 		import("./start-5Z2QO8AU.mjs"),
 		import("./empty-plugin-adapters-D9UWiqvJ.mjs")
 	]);

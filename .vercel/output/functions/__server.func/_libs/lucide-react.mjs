@@ -245,6 +245,30 @@ var Radar = createLucideIcon("radar", [
 * This source code is licensed under the ISC license.
 * See the LICENSE file in the root directory of this source tree.
 */
+var RefreshCw = createLucideIcon("refresh-cw", [
+	["path", {
+		d: "M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8",
+		key: "v9h5vc"
+	}],
+	["path", {
+		d: "M21 3v5h-5",
+		key: "1q7to0"
+	}],
+	["path", {
+		d: "M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16",
+		key: "3uifl3"
+	}],
+	["path", {
+		d: "M8 16H3v5",
+		key: "1cv678"
+	}]
+]);
+/**
+* @license lucide-react v0.510.0 - ISC
+*
+* This source code is licensed under the ISC license.
+* See the LICENSE file in the root directory of this source tree.
+*/
 var Scale = createLucideIcon("scale", [
 	["path", {
 		d: "m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z",
@@ -367,6 +391,19 @@ var TriangleAlert = createLucideIcon("triangle-alert", [
 * This source code is licensed under the ISC license.
 * See the LICENSE file in the root directory of this source tree.
 */
+var Wallet = createLucideIcon("wallet", [["path", {
+	d: "M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1",
+	key: "18etb6"
+}], ["path", {
+	d: "M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4",
+	key: "xoc0q4"
+}]]);
+/**
+* @license lucide-react v0.510.0 - ISC
+*
+* This source code is licensed under the ISC license.
+* See the LICENSE file in the root directory of this source tree.
+*/
 var X = createLucideIcon("x", [["path", {
 	d: "M18 6 6 18",
 	key: "1bl5f8"
@@ -375,4 +412,4 @@ var X = createLucideIcon("x", [["path", {
 	key: "d8bk6v"
 }]]);
 //#endregion
-export { ScrollText as a, Play as c, Funnel as d, Crosshair as f, Shield as i, Pause as l, Check as m, TriangleAlert as n, Scale as o, Copy as p, Sunrise as r, Radar as s, X as t, Moon as u };
+export { Shield as a, RefreshCw as c, Pause as d, Moon as f, Check as g, Copy as h, Sunrise as i, Radar as l, Crosshair as m, Wallet as n, ScrollText as o, Funnel as p, TriangleAlert as r, Scale as s, X as t, Play as u };

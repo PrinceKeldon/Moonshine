@@ -2,6 +2,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, YAxis } from "recharts";
 import { Crosshair, Filter, Moon, Pause, Play, Radar, Scale, ScrollText, Shield, Sunrise } from "lucide-react";
 import { RecapScreen } from "@/components/desk/recap";
+import { WalletButton } from "@/components/desk/wallet";
+import { LiveButton } from "@/components/desk/live-panel";
+import { runLiveCycle } from "@/lib/desk/autotrade";
+import { useLive } from "@/lib/desk/live-store";
+import { bootLive, reconnectPhantom } from "@/lib/desk/solana-wallet";
 import { AGENT_META, equityOf } from "@/lib/desk/engine";
 import { compactUsd, deskClock, money, pct, pxPrice } from "@/lib/desk/format";
 import { fetchPublicTape } from "@/lib/desk/public-tape";
@@ -82,6 +87,32 @@ export function DeskApp() {
     };
   }, [ready]);
 
+  const liveWatch = useLive((s) => s.armed || s.positions.length > 0);
+
+  useEffect(() => {
+    let stop = false;
+    void bootLive().then(() => {
+      if (!stop) void reconnectPhantom();
+    });
+    return () => {
+      stop = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!liveWatch) return;
+    let stop = false;
+    const pull = () => {
+      if (!stop) void runLiveCycle();
+    };
+    pull();
+    const id = window.setInterval(pull, 20000);
+    return () => {
+      stop = true;
+      window.clearInterval(id);
+    };
+  }, [liveWatch]);
+
   if (!ready) return <Skeleton />;
 
   return (
@@ -98,7 +129,6 @@ export function DeskApp() {
       <Agents />
       <Workspace />
       <RecapGate />
-      <ArmGate />
     </div>
   );
 }
@@ -122,9 +152,11 @@ function Header() {
   const toggleRun = useDesk((s) => s.toggleRun);
   const startNight = useDesk((s) => s.startNight);
   const openRecap = useDesk((s) => s.openRecap);
-  const setArmOpen = useDesk((s) => s.setArmOpen);
   const setPaper = useDesk((s) => s.setPaper);
   const reset = useDesk((s) => s.reset);
+  const liveOn = useLive((s) => s.armed);
+  const livePositions = useLive((s) => s.positions.length);
+  const liveStatus = useLive((s) => s.status);
   const [confirmReset, setConfirmReset] = useState(false);
 
   const tapeLabel = publicTape === "live" ? "Public tape live" : publicTape === "offline" ? "Public tape offline" : "Public tape connecting";
@@ -140,8 +172,8 @@ function Header() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className={cn("rounded-md px-2 py-1 font-mono text-xs", mode === "shadow" ? "bg-amber text-ink" : "bg-raised text-up")}>
-            {mode === "shadow" ? "SHADOW" : "PAPER"}
+          <span className={cn("rounded-md px-2 py-1 font-mono text-xs", liveOn ? "bg-amber text-ink" : mode === "shadow" ? "bg-amber text-ink" : "bg-raised text-up")}>
+            {liveOn ? "LIVE" : mode === "shadow" ? "SHADOW" : "PAPER"}
           </span>
           <span className="inline-flex items-center gap-1.5 text-xs text-muted">
             <span className={cn("size-1.5 rounded-full", running ? "bg-up keel-pulse" : "bg-dim")} aria-hidden="true" />
@@ -170,11 +202,9 @@ function Header() {
             <Sunrise className="size-4" aria-hidden="true" />
             Recap
           </button>
-          {mode === "paper" ? (
-            <button type="button" onClick={() => setArmOpen(true)} className="inline-flex min-h-11 items-center rounded-md border border-line px-3 text-sm text-muted">
-              Live
-            </button>
-          ) : (
+          <WalletButton />
+          <LiveButton />
+          {mode === "paper" ? null : (
             <button type="button" onClick={setPaper} className="inline-flex min-h-11 items-center rounded-md border border-amber px-3 text-sm text-amber">
               Back to paper
             </button>
@@ -195,6 +225,11 @@ function Header() {
           </button>
         </div>
       </div>
+      {liveOn ? (
+        <p className="border-t border-line px-3 py-1.5 text-xs text-amber">Live. {liveStatus}</p>
+      ) : livePositions > 0 ? (
+        <p className="border-t border-line px-3 py-1.5 text-xs text-amber">Disarmed. {livePositions} chain name{livePositions === 1 ? "" : "s"} still watched for stops.</p>
+      ) : null}
       {mode === "shadow" ? (
         <p className="border-t border-line px-3 py-1.5 text-xs text-amber">Shadow arm. The agents still write orders. Nothing is signed or broadcast.</p>
       ) : null}
@@ -520,42 +555,4 @@ function RecapGate() {
   const open = useDesk((s) => s.recapOpen);
   if (!open) return null;
   return <RecapScreen />;
-}
-
-function ArmGate() {
-  const open = useDesk((s) => s.armOpen);
-  const setArmOpen = useDesk((s) => s.setArmOpen);
-  const armShadow = useDesk((s) => s.armShadow);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setArmOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, setArmOpen]);
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-bg/80 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="arm-title">
-      <div className="w-full max-w-md rounded-md border border-line bg-surface p-4">
-        <p className="font-mono text-xs tracking-widest text-amber">LIVE STAYS DARK</p>
-        <h2 id="arm-title" className="mt-2 text-xl font-medium">
-          This desk will not hold a key
-        </h2>
-        <p className="mt-2 text-sm text-muted">
-          KEEL will not take a seed phrase or a private key. That is the first preservation rule. Paper is the book that runs.
-          Arming live only switches the session to shadow: the same six agents, the same hard handoffs, orders written and then withheld.
-        </p>
-        <p className="mt-2 text-sm text-fg">Nothing reaches Solana.</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" onClick={() => setArmOpen(false)} className="inline-flex min-h-11 items-center rounded-md bg-up px-4 text-sm font-medium text-ink">
-            Keep paper
-          </button>
-          <button type="button" onClick={armShadow} className="inline-flex min-h-11 items-center rounded-md border border-line px-4 text-sm">
-            Arm shadow book
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }

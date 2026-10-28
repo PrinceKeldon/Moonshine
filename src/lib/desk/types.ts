@@ -190,6 +190,8 @@ export type DeskState = {
   breaches: string[];
   publicTape: "idle" | "live" | "offline";
   tapeNote: string;
+  watchAddress: string;
+  watch: WatchSnapshot | null;
 };
 
 export type PublicPairDTO = {
@@ -211,4 +213,25 @@ export type PublicTapeResult = {
   pairs: PublicPairDTO[];
   scanned: number;
   dropped: number;
+};
+
+export type WatchToken = {
+  mint: string;
+  symbol: string;
+  amount: number;
+  usd: number | null;
+};
+
+export type WatchSnapshot = {
+  address: string;
+  sol: number;
+  solUsd: number | null;
+  tokens: WatchToken[];
+  fetchedAt: number;
+};
+
+export type WatchResult = {
+  ok: boolean;
+  snapshot: WatchSnapshot | null;
+  error: string | null;
 };

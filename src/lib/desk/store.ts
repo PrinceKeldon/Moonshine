@@ -9,7 +9,7 @@ import {
   prewarm,
   stepMinute,
 } from "@/lib/desk/engine";
-import type { DeskState, Pair, PublicTapeResult } from "@/lib/desk/types";
+import type { DeskState, Pair, PublicTapeResult, WatchSnapshot } from "@/lib/desk/types";
 
 const memory = new Map<string, string>();
 
@@ -45,6 +45,8 @@ export type DeskActions = {
   setPaper: () => void;
   reset: () => void;
   ingestPublic: (payload: PublicTapeResult) => void;
+  saveWatch: (address: string, snapshot: WatchSnapshot) => void;
+  clearWatch: () => void;
 };
 
 function toPublicPair(row: PublicTapeResult["pairs"][number]): Pair {
@@ -133,7 +135,11 @@ export const useDesk = create<DeskState & DeskActions>()(
       setArmOpen: (open) => set({ armOpen: open }),
       armShadow: () => set((cur) => ({ ...noteMode(cur, "shadow"), armOpen: false })),
       setPaper: () => set((cur) => noteMode(cur, "paper")),
-      reset: () => set(prewarm(createDesk((Date.now() ^ 0x9e3779b9) >>> 0), 150)),
+      reset: () =>
+        set((cur) => {
+          const next = prewarm(createDesk((Date.now() ^ 0x9e3779b9) >>> 0), 150);
+          return { ...next, watchAddress: cur.watchAddress ?? "", watch: cur.watch ?? null };
+        }),
       ingestPublic: (payload) =>
         set((cur) => {
           if (!payload.ok) {
@@ -164,6 +170,8 @@ export const useDesk = create<DeskState & DeskActions>()(
             seenMints: [...seen].slice(-400),
           };
         }),
+      saveWatch: (address, snapshot) => set({ watchAddress: address, watch: snapshot }),
+      clearWatch: () => set({ watchAddress: "", watch: null }),
     }),
     {
       name: "keel-desk-v1",
@@ -182,6 +190,8 @@ export const useDesk = create<DeskState & DeskActions>()(
           setPaper: _setPaper,
           reset: _reset,
           ingestPublic: _ingestPublic,
+          saveWatch: _saveWatch,
+          clearWatch: _clearWatch,
           ...data
         } = state;
         return data;
@@ -192,5 +202,8 @@ export const useDesk = create<DeskState & DeskActions>()(
 
 export function bootDesk() {
   const current = useDesk.getState();
-  if (!current.warmed) useDesk.setState(prewarm(current, 150));
+  const patched =
+    typeof current.watchAddress === "string" ? current : { ...current, watchAddress: "", watch: current.watch ?? null };
+  if (!patched.warmed) useDesk.setState(prewarm(patched, 150));
+  else if (patched !== current) useDesk.setState({ watchAddress: "", watch: patched.watch });
 }
