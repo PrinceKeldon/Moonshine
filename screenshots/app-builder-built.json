@@ -7,9 +7,9 @@
       "status": 200,
       "title": "KEEL",
       "hasCanvas": false,
-      "bodyTextLen": 94,
-      "bodyTextHash": "1f248fde3346d6f3e9182cc1c26e69291536f1e156cc02b52ae56be879787dca",
-      "bodyTextPrefix": "KEEL Opening the paper book Scout, Filter, Analyst, Executor, Ri",
+      "bodyTextLen": 20938,
+      "bodyTextHash": "0353d7908fd14690a71a6a0ebd9c9af991a866b9877d154c7f0bbdf41d92f395",
+      "bodyTextPrefix": "KEEL Capital stays first PAPER Public tape connecting 02:30:00 P",
       "horizontalOverflow": false,
       "consoleErrors": [],
       "pageErrors": [],
@@ -21,9 +21,9 @@
       "status": 200,
       "title": "KEEL",
       "hasCanvas": false,
-      "bodyTextLen": 1346,
-      "bodyTextHash": "322db9fafed3e5dd6b82a14ff7e554f046ede6fc15daead080601f3e1cd761de",
-      "bodyTextPrefix": "KEEL Capital stays first PAPER Public tape connecting 02:30:00 P",
+      "bodyTextLen": 94,
+      "bodyTextHash": "1f248fde3346d6f3e9182cc1c26e69291536f1e156cc02b52ae56be879787dca",
+      "bodyTextPrefix": "KEEL Opening the paper book Scout, Filter, Analyst, Executor, Ri",
       "horizontalOverflow": false,
       "consoleErrors": [],
       "pageErrors": [],
@@ -35,6 +35,6 @@
   "verdictFile": "/workspace/screenshots/app-builder-built.json",
   "divergesFromBaseline": true,
   "baselineReasons": [
-    "mobile: body text changed (94 -> 1346 chars, hash mismatch)"
+    "desktop: body text changed (94 -> 20938 chars, hash mismatch)"
   ]
 }

@@ -14,7 +14,7 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "KEEL is a paper-first Solana memecoin desk. Six agents, hard gates, and an 8% size cap. Nothing is signed.",
+          "KEEL is a Solana memecoin desk. Paper by default. Live autotrades only after you arm a wallet.",
       },
       { name: "theme-color", content: "#10130e" },
     ],

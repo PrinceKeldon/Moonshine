@@ -110,7 +110,7 @@ function WalletSheet({ onClose }: { onClose: () => void }) {
             <h2 id="wallet-title" className="text-lg font-medium">
               Paper book, public watch
             </h2>
-            <p className="text-xs text-muted">Nothing is signed. KEEL never asks for a key.</p>
+            <p className="text-xs text-muted">This book is simulated. Chain autotrade is under Live.</p>
           </div>
           <button type="button" onClick={onClose} className="inline-flex size-11 items-center justify-center rounded-md border border-line" aria-label="Close wallet">
             <X className="size-4" aria-hidden="true" />
