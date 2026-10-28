@@ -19,6 +19,9 @@ export type ScreenResult = {
   top10: number | null;
   lpLockedPct: number | null;
   creator: string | null;
+  creatorHistoryAvailable: boolean;
+  creatorTokenCount: number | null;
+  devPriorRugs: number | null;
 };
 
 export type SwapBuild = {
@@ -99,6 +102,9 @@ function judge(report: unknown): ScreenResult {
     top10: null,
     lpLockedPct: null,
     creator: null,
+    creatorHistoryAvailable: false,
+    creatorTokenCount: null,
+    devPriorRugs: null,
   });
   if (!report || typeof report !== "object") return empty("RugCheck returned nothing.");
   const row = report as Record<string, unknown>;
@@ -198,15 +204,49 @@ function judge(report: unknown): ScreenResult {
     top10: holdersComplete ? top10 : null,
     lpLockedPct,
     creator,
+    creatorHistoryAvailable: false,
+    creatorTokenCount: null,
+    devPriorRugs: null,
   };
 }
 
+async function withCreatorHistory(screen: ScreenResult): Promise<ScreenResult> {
+  if (!screen.creator) return screen;
+  try {
+    const url = new URL("https://trader.scorplabs.online/api/public/tools/dev-reputation");
+    url.searchParams.set("wallet", screen.creator);
+    const res = await fetch(url, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return screen;
+    const body: unknown = await res.json();
+    if (!body || typeof body !== "object" || !("found" in body) || body.found !== true) return screen;
+    const row = body as Record<string, unknown>;
+    const tokenCount = num(row.tokens_count);
+    const rugCount = num(row.rugged);
+    if (!Number.isInteger(tokenCount) || tokenCount < 1 || !Number.isInteger(rugCount) || rugCount < 0) return screen;
+    return {
+      ...screen,
+      creatorHistoryAvailable: true,
+      creatorTokenCount: tokenCount,
+      devPriorRugs: rugCount,
+    };
+  } catch {
+    return screen;
+  }
+}
+
 export const screenMint = createServerFn({ method: "POST" })
-  .validator((input: { mint: string; venue: "pump.fun" | "raydium" }): { mint: string; venue: "pump.fun" | "raydium" } => {
+  .validator((input: {
+    mint: string;
+    venue: "pump.fun" | "raydium";
+    includeCreatorHistory?: boolean;
+  }): { mint: string; venue: "pump.fun" | "raydium"; includeCreatorHistory: boolean } => {
     const mint = input.mint.trim();
     if (!isSolanaAddress(mint)) throw new Error("Bad mint.");
     const venue = input.venue === "raydium" ? "raydium" : "pump.fun";
-    return { mint, venue };
+    return { mint, venue, includeCreatorHistory: input.includeCreatorHistory === true };
   })
   .handler(async ({ data }): Promise<ScreenResult> => {
     try {
@@ -216,7 +256,8 @@ export const screenMint = createServerFn({ method: "POST" })
       });
       if (res.status === 429) return { ...judge(null), reason: "RugCheck is rate limiting. Skipped this pass." };
       if (!res.ok) return { ...judge(null), reason: "RugCheck did not answer." };
-      return judge(await res.json());
+      const screen = judge(await res.json());
+      return data.includeCreatorHistory ? withCreatorHistory(screen) : screen;
     } catch {
       return { ...judge(null), reason: "RugCheck did not answer." };
     }

@@ -25,6 +25,7 @@ export type Pair = {
   top10Pct: number | null;
   devWallet: string | null;
   devPriorRugs: number | null;
+  devHistoryTokens?: number | null;
   safetyReason?: string | null;
   source: "index" | "public";
 };
@@ -217,6 +218,8 @@ export type PublicPairDTO = {
   top10Pct?: number | null;
   creator?: string | null;
   devPriorRugs?: number | null;
+  creatorHistoryAvailable?: boolean;
+  creatorTokenCount?: number | null;
   safetyReason?: string | null;
 };
 

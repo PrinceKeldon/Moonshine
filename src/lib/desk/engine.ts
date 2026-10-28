@@ -196,7 +196,7 @@ function filterPair(pair: Pair): { ok: true; reason: string } | { ok: false; cod
     return {
       ok: false,
       code: "unverified",
-      reason: `RugCheck identified creator ${pair.devWallet}, but no creator rug-history source is configured. Rejected.`,
+      reason: `Creator ${pair.devWallet} has no indexed Scorp history or the lookup failed. Unknown is not clean; rejected.`,
     };
   }
   if (
@@ -241,7 +241,7 @@ function filterPair(pair: Pair): { ok: true; reason: string } | { ok: false; cod
   }
   return {
     ok: true,
-    reason: `All gates clear. Mint and freeze authority revoked, LP locked, top 10 at ${pair.top10Pct.toFixed(1)}%, 1h volume ${compactUsd(pair.volume1hUsd)}, dev ${pair.devWallet} clean.`,
+    reason: `All gates clear. Mint and freeze authority revoked, LP locked, top 10 at ${pair.top10Pct.toFixed(1)}%, 1h volume ${compactUsd(pair.volume1hUsd)}, Scorp tracked ${pair.devHistoryTokens ?? "indexed"} creator launches with 0 reported rugs.`,
   };
 }
 

@@ -69,6 +69,7 @@ function toPublicPair(row: PublicTapeResult["pairs"][number]): Pair {
     top10Pct: row.top10Pct ?? null,
     devWallet: row.creator ?? null,
     devPriorRugs: row.devPriorRugs ?? null,
+    devHistoryTokens: row.creatorTokenCount ?? null,
     safetyReason: row.safetyReason ?? null,
     source: "public",
   };
@@ -177,8 +178,8 @@ export const useDesk = create<DeskState & DeskActions>()(
           });
           const note =
             added > 0 || newlyChecked > 0
-              ? `Live market data. ${added} new listings and ${newlyChecked} RugCheck retries queued. Creator rug history is still required; no chain orders are sent.`
-              : `Live market data refreshed. RugCheck screens candidates; paper positions use the latest public price. Creator rug history is still required.`;
+              ? `Live market data. ${added} new listings and ${newlyChecked} RugCheck retries queued. Scorp creator history is checked when indexed; unknown remains blocked.`
+              : `Live market data refreshed. RugCheck screens candidates; Scorp creator history is required for paper fills. Unknown remains blocked.`;
           return {
             ...cur,
             opens,

@@ -20,7 +20,7 @@ const RULES = [
   "1h vol ≥ $50k",
   "Score ≥ 0.60",
   "RugCheck gates required",
-  "Creator history required",
+  "Indexed creator history required",
   "Paper fills only",
   "Prices refresh every 20s",
   "Size ≤ 8%",
@@ -95,8 +95,12 @@ export function DeskApp() {
                   if (Date.now() - attemptedAt >= 60_000) {
                     safetyAttemptAt.set(pair.mint, Date.now());
                     try {
-                      safety = await screenMint({ data: { mint: pair.mint, venue: pair.venue } });
-                      if (safety.reportAvailable) safetyCache.set(pair.mint, safety);
+                      safety = await screenMint({
+                        data: { mint: pair.mint, venue: pair.venue, includeCreatorHistory: true },
+                      });
+                      if (safety.reportAvailable && (!safety.creator || safety.creatorHistoryAvailable)) {
+                        safetyCache.set(pair.mint, safety);
+                      }
                     } catch {
                       safety = undefined;
                     }
@@ -110,7 +114,9 @@ export function DeskApp() {
                   lpLocked: safety?.lpLocked ?? null,
                   top10Pct: safety?.top10 ?? null,
                   creator: safety?.creator ?? null,
-                  devPriorRugs: null,
+                  devPriorRugs: safety?.devPriorRugs ?? null,
+                  creatorHistoryAvailable: safety?.creatorHistoryAvailable ?? false,
+                  creatorTokenCount: safety?.creatorTokenCount ?? null,
                   safetyReason: safety?.ok ? null : safety?.reason ?? "RugCheck report unavailable.",
                 };
               }),
