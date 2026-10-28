@@ -14,7 +14,6 @@ import type {
   TapeRow,
   Tone,
   TradeView,
-  Venue,
 } from "./types.ts";
 
 export const START_CASH = 10_000;
@@ -30,59 +29,6 @@ export const MIN_VOL = 50_000;
 export const MAX_TOP10 = 20;
 export const REVENGE_MS = 30 * NIGHT;
 export const FEE = 0.003;
-
-const NAMES: readonly (readonly [string, string])[] = [
-  ["SOOT", "Soot"],
-  ["BRAMBLE", "Bramble"],
-  ["PEBBLE", "Pebble"],
-  ["LANTERN", "Lantern"],
-  ["THISTLE", "Thistle"],
-  ["MARSH", "Marsh"],
-  ["CINDER", "Cinder"],
-  ["PIPPIN", "Pippin"],
-  ["OCHRE", "Ochre"],
-  ["FIDDLE", "Fiddle"],
-  ["WICK", "Wick"],
-  ["GULL", "Gull"],
-  ["NETTLE", "Nettle"],
-  ["QUILL", "Quill"],
-  ["DRIFT", "Driftwood"],
-  ["HUSK", "Husk"],
-  ["MOTH", "Moth"],
-  ["SALT", "Saltpan"],
-  ["YARROW", "Yarrow"],
-  ["KELP", "Kelp"],
-  ["FLINT", "Flint"],
-  ["BORAGE", "Borage"],
-  ["RIND", "Rind"],
-  ["CLOVE", "Clove"],
-  ["TAWNY", "Tawny"],
-  ["PLOVER", "Plover"],
-  ["BRACK", "Brack"],
-  ["COPSE", "Copse"],
-  ["SEDGE", "Sedge"],
-  ["LOAM", "Loam"],
-  ["BRINE", "Brine"],
-  ["KINDLING", "Kindling"],
-  ["VETCH", "Vetch"],
-  ["ROWAN", "Rowan"],
-  ["GRIT", "Grit"],
-  ["ALDER", "Alder"],
-  ["FENNEL", "Fennel"],
-  ["COBB", "Cobb"],
-  ["LARK", "Lark"],
-  ["SORREL", "Sorrel"],
-  ["WOLD", "Wold"],
-  ["CHERT", "Chert"],
-  ["BRIAR", "Briar"],
-  ["DULSE", "Dulse"],
-  ["HAW", "Hawthorn"],
-  ["SLATE", "Slate"],
-  ["REED", "Reed"],
-  ["TOR", "Tor"],
-];
-
-const ALPH = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 export const AGENT_META: readonly { id: AgentId; name: string; duty: string }[] = [
   { id: "scout", name: "Scout", duty: "Pump.fun and Raydium, as they print" },
@@ -127,20 +73,6 @@ function idleAgents(): Record<AgentId, AgentSnap> {
   };
 }
 
-function mulberry(seed: number): { value: number; seed: number } {
-  let t = (seed + 0x6d2b79f5) | 0;
-  t = Math.imul(t ^ (t >>> 15), t | 1);
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  const value = ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  return { value, seed: t >>> 0 };
-}
-
-function wallet(rand: () => number): string {
-  let out = "";
-  for (let i = 0; i < 6; i += 1) out += ALPH[Math.floor(rand() * ALPH.length)] ?? "K";
-  return out;
-}
-
 function cents(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -153,7 +85,7 @@ function clamp01(n: number): number {
 
 export function createDesk(seed = 0x4b45454c): DeskState {
   return {
-    warmed: false,
+    warmed: true,
     running: true,
     overnight: false,
     heldRun: false,
@@ -176,6 +108,7 @@ export function createDesk(seed = 0x4b45454c): DeskState {
     tape: [],
     inbox: [],
     seenMints: [],
+    checkedMints: [],
     rugDevs: [],
     reissue: [],
     revengeUntil: {},
@@ -183,7 +116,7 @@ export function createDesk(seed = 0x4b45454c): DeskState {
     stats: emptyStats(),
     breaches: [],
     publicTape: "idle",
-    tapeNote: "Public tape has not reported yet. Indexed launches still run.",
+    tapeNote: "Waiting for live Pump.fun and Raydium listings. Paper trades use public market prices.",
     watchAddress: "",
     watch: null,
   };
@@ -200,6 +133,7 @@ function copyState(input: DeskState): DeskState {
     tape: input.tape.slice(),
     inbox: input.inbox.slice(),
     seenMints: input.seenMints,
+    checkedMints: input.checkedMints.slice(),
     rugDevs: input.rugDevs.slice(),
     reissue: input.reissue.slice(),
     revengeUntil: { ...input.revengeUntil },
@@ -251,121 +185,23 @@ export function equityOf(s: Pick<DeskState, "cash" | "opens">): number {
   return s.cash + marked;
 }
 
-function gauss(rand: () => number): number {
-  const u = Math.max(1e-9, rand());
-  const v = rand();
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-}
-
-function forgePair(s: DeskState, rand: () => number): Pair {
-  if (s.opens.length > 0 && rand() < 0.035) {
-    const open = s.opens[Math.floor(rand() * s.opens.length)]!;
-    return { ...open.template, uid: `add${s.deskTime}-${open.mint}`, priceUsd: open.price };
-  }
-  if (s.reissue.length > 0 && rand() < 0.5) {
-    const prior = s.reissue.shift();
-    if (prior) return { ...prior, uid: `re${s.deskTime}-${prior.mint}` };
-  }
-
-  const tierRoll = rand();
-  const tier = tierRoll < 0.82 ? "junk" : tierRoll < 0.975 ? "mid" : "clean";
-  const venue: Venue = rand() < 0.62 ? "pump.fun" : "raydium";
-  const named = NAMES[Math.floor(rand() * NAMES.length)] ?? NAMES[0]!;
-  const base = named[0];
-  const name = named[1];
-  const used = new Set<string>([...s.opens.map((row) => row.symbol), ...s.closed.map((row) => row.symbol)]);
-  let symbol = base;
-  let suffix = 2;
-  while (used.has(symbol)) {
-    symbol = `${base}${suffix}`;
-    suffix += 1;
-  }
-  const mint = `idx${Math.floor(rand() * 1e9).toString(36)}${symbol}`;
-
-  let mintRevoked = true;
-  let lpLocked = true;
-  let top10 = 8;
-  let volume = 120_000;
-  let liquidity = 80_000;
-  let ageMin = 40;
-  let buys = 400;
-  let sells = 280;
-  let prior = 0;
-
-  if (tier === "junk") {
-    mintRevoked = rand() < 0.45;
-    lpLocked = rand() < 0.4;
-    top10 = rand() < 0.58 ? 22 + rand() * 48 : 6 + rand() * 13;
-    volume = rand() < 0.74 ? 1200 + rand() * 40_000 : 50_000 + rand() * 90_000;
-    liquidity = 1800 + rand() * 28_000;
-    ageMin = rand() * 30;
-    buys = Math.floor(rand() * 90);
-    sells = Math.floor(20 + rand() * 140);
-    prior = rand() < 0.38 ? 1 + Math.floor(rand() * 4) : 0;
-  } else if (tier === "mid") {
-    mintRevoked = rand() < 0.78;
-    lpLocked = rand() < 0.72;
-    top10 = 9 + rand() * 16;
-    volume = 28_000 + rand() * 180_000;
-    liquidity = 18_000 + rand() * 80_000;
-    ageMin = 10 + rand() * 120;
-    buys = 90 + Math.floor(rand() * 320);
-    sells = 80 + Math.floor(rand() * 340);
-    prior = rand() < 0.2 ? 1 : 0;
-  } else {
-    mintRevoked = rand() < 0.94;
-    lpLocked = rand() < 0.92;
-    top10 = 3 + rand() * 11;
-    volume = 90_000 + rand() * 820_000;
-    liquidity = 60_000 + rand() * 280_000;
-    ageMin = 20 + rand() * 150;
-    buys = 240 + Math.floor(rand() * 900);
-    sells = 90 + Math.floor(rand() * 360);
-    prior = rand() < 0.06 ? 1 : 0;
-  }
-
-  let devWallet: string;
-  if (prior > 0 && s.rugDevs.length > 0 && rand() < 0.55) {
-    devWallet = s.rugDevs[Math.floor(rand() * s.rugDevs.length)]!;
-    prior = Math.max(prior, 1);
-  } else {
-    devWallet = wallet(rand);
-    if (prior > 0) s.rugDevs.push(devWallet);
-  }
-  if (prior === 0 && s.rugDevs.length > 0 && rand() < 0.07) {
-    devWallet = s.rugDevs[Math.floor(rand() * s.rugDevs.length)]!;
-    prior = 1 + Math.floor(rand() * 3);
-  }
-  if (s.rugDevs.length > 40) s.rugDevs.splice(0, s.rugDevs.length - 40);
-
-  return {
-    uid: `p${s.deskTime}-${mint}`,
-    mint,
-    symbol,
-    name,
-    venue,
-    priceUsd: 0.00002 + rand() * 0.04,
-    volume1hUsd: volume,
-    liquidityUsd: liquidity,
-    mcapUsd: liquidity * (3 + rand() * 9),
-    ageMin,
-    buys1h: buys,
-    sells1h: sells,
-    mintRevoked,
-    lpLocked,
-    top10Pct: top10,
-    devWallet,
-    devPriorRugs: prior,
-    source: "index",
-  };
-}
-
 function filterPair(pair: Pair): { ok: true; reason: string } | { ok: false; code: KillCode; reason: string } {
   if (pair.venue !== "pump.fun" && pair.venue !== "raydium") {
     return { ok: false, code: "venue", reason: "Venue is outside Pump.fun and Raydium. Rejected." };
   }
+  if (pair.source === "public" && pair.safetyReason) {
+    return { ok: false, code: "unverified", reason: `RugCheck blocked this paper candidate: ${pair.safetyReason}` };
+  }
+  if (pair.source === "public" && pair.devWallet && pair.devPriorRugs === null) {
+    return {
+      ok: false,
+      code: "unverified",
+      reason: `RugCheck identified creator ${pair.devWallet}, but no creator rug-history source is configured. Rejected.`,
+    };
+  }
   if (
     pair.mintRevoked === null ||
+    pair.freezeRevoked === null ||
     pair.lpLocked === null ||
     pair.top10Pct === null ||
     pair.devWallet === null ||
@@ -375,10 +211,11 @@ function filterPair(pair: Pair): { ok: true; reason: string } | { ok: false; cod
       ok: false,
       code: "unverified",
       reason:
-        "No gate attestation on this public print. Mint authority, LP lock, holder concentration, and dev history are unproven. Rejected.",
+        "RugCheck or creator history is incomplete. Mint/freeze authority, LP lock, holder concentration, and developer rug history must be verified. Rejected.",
     };
   }
   if (!pair.mintRevoked) return { ok: false, code: "mint", reason: "Mint authority is still live. Rejected." };
+  if (!pair.freezeRevoked) return { ok: false, code: "mint", reason: "Freeze authority is still live. Rejected." };
   if (!pair.lpLocked) return { ok: false, code: "lp", reason: "LP is not locked. Rejected." };
   if (pair.top10Pct > MAX_TOP10) {
     return {
@@ -404,7 +241,7 @@ function filterPair(pair: Pair): { ok: true; reason: string } | { ok: false; cod
   }
   return {
     ok: true,
-    reason: `All gates clear. Mint revoked, LP locked, top 10 at ${pair.top10Pct.toFixed(1)}%, 1h volume ${compactUsd(pair.volume1hUsd)}, dev ${pair.devWallet} clean.`,
+    reason: `All gates clear. Mint and freeze authority revoked, LP locked, top 10 at ${pair.top10Pct.toFixed(1)}%, 1h volume ${compactUsd(pair.volume1hUsd)}, dev ${pair.devWallet} clean.`,
   };
 }
 
@@ -415,8 +252,7 @@ function analyze(pair: Pair): { score: number; reason: string } {
   const ageScore = pair.ageMin < 6 ? 0.2 : pair.ageMin < 15 ? 0.5 : pair.ageMin < 180 ? 0.9 : 0.62;
   const flow = (pair.buys1h - pair.sells1h) / Math.max(1, pair.buys1h + pair.sells1h);
   const flowScore = clamp01(0.5 + flow * 0.9);
-  const raw =
-    0.2 * volScore + 0.24 * liqScore + 0.18 * holderScore + 0.18 * ageScore + 0.2 * flowScore;
+  const raw = 0.2 * volScore + 0.24 * liqScore + 0.18 * holderScore + 0.18 * ageScore + 0.2 * flowScore;
   const score = Math.round(clamp01(raw) * 100) / 100;
   const reason = `Score ${score.toFixed(2)}. Liquidity ${liqScore.toFixed(2)}, volume ${volScore.toFixed(2)}, holders ${holderScore.toFixed(2)}, age ${ageScore.toFixed(2)}, flow ${flowScore.toFixed(2)}. Line is 0.60.`;
   return { score, reason };
@@ -525,6 +361,7 @@ function runPipeline(s: DeskState, pair: Pair) {
   s.cash = cents(s.cash - cost);
   const gates: Gates = {
     mintRevoked: pair.mintRevoked === true,
+    freezeRevoked: pair.freezeRevoked === true,
     lpLocked: pair.lpLocked === true,
     top10Pct: pair.top10Pct ?? 100,
     volume1hUsd: pair.volume1hUsd,
@@ -599,20 +436,10 @@ function closePosition(s: DeskState, pos: Fill, kind: "stop" | "trail", pnl: num
   decide(s, pos.symbol, pos.mint, kind, reason);
 }
 
-function drawReturn(pos: Fill, rand: () => number): number {
-  const drift = (pos.score - 0.8) * 0.0022;
-  let ret = drift + 0.0105 * gauss(rand);
-  if (rand() < 0.01 && pos.score >= 0.74) ret += 0.04 + rand() * 0.05;
-  if (rand() < 0.005) ret -= 0.045 + rand() * 0.07;
-  if (ret > 0.2) return 0.2;
-  if (ret < -0.12) return -0.12;
-  return ret;
-}
-
-function markBook(s: DeskState, rand: () => number) {
+function markBook(s: DeskState) {
   const still: Fill[] = [];
   for (const pos of s.opens) {
-    const price = Math.max(1e-8, pos.price * (1 + drawReturn(pos, rand)));
+    const price = Math.max(1e-12, pos.price);
     const pnl = price / pos.entryPrice - 1;
     const peak = Math.max(pos.peakPnlPct, pnl);
     let trailArmed = pos.trailArmed;
@@ -676,12 +503,6 @@ export function noteMode(input: DeskState, mode: "paper" | "shadow"): DeskState 
 
 export function stepMinute(input: DeskState): DeskState {
   const s = copyState(input);
-  let rng = s.rng >>> 0;
-  const rand = () => {
-    const next = mulberry(rng);
-    rng = next.seed;
-    return next.value;
-  };
   s.deskTime += MINUTE;
 
   const batch: Pair[] = [];
@@ -690,10 +511,8 @@ export function stepMinute(input: DeskState): DeskState {
     if (pub) batch.push(pub);
     s.inbox = s.inbox.slice(1);
   }
-  if (rand() < 0.92) batch.push(forgePair(s, rand));
-
   for (const pair of batch) runPipeline(s, pair);
-  markBook(s, rand);
+  markBook(s);
 
   const equity = cents(equityOf(s));
   s.equity.push({ t: s.deskTime, equity });
@@ -703,15 +522,13 @@ export function stepMinute(input: DeskState): DeskState {
   for (const item of found) {
     if (!s.breaches.includes(item)) s.breaches.push(item);
   }
-  s.rng = rng;
   return s;
 }
 
 export function prewarm(state: DeskState, minutes: number): DeskState {
   let s = copyState(state);
   s.warmed = true;
-  const steps = Math.max(0, Math.floor(minutes));
-  for (let i = 0; i < steps; i += 1) s = stepMinute(s);
+  void minutes;
   return s;
 }
 
@@ -729,11 +546,11 @@ export function auditBook(s: DeskState): string[] {
     }
     if (fill.score < MIN_SCORE) problems.push(`${fill.symbol} entered at ${fill.score.toFixed(2)}.`);
     if (!fill.gates.mintRevoked) problems.push(`${fill.symbol} entered with a live mint.`);
+    if (!fill.gates.freezeRevoked) problems.push(`${fill.symbol} entered with a live freeze authority.`);
     if (!fill.gates.lpLocked) problems.push(`${fill.symbol} entered with LP unlocked.`);
     if (fill.gates.top10Pct > MAX_TOP10) problems.push(`${fill.symbol} entered with top 10 at ${fill.gates.top10Pct}.`);
     if (fill.gates.volume1hUsd < MIN_VOL) problems.push(`${fill.symbol} entered under the volume floor.`);
     if (fill.gates.devPriorRugs > 0) problems.push(`${fill.symbol} entered on a rug-linked dev.`);
-    if (fill.source === "public") problems.push(`${fill.symbol} was a public print with unproven gates.`);
     if (fill.trailArmed && fill.peakPnlPct + 1e-9 < TRAIL_ARM) {
       problems.push(`${fill.symbol} trailed before +12%.`);
     }

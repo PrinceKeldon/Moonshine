@@ -85,6 +85,8 @@ export const fetchPublicTape = createServerFn({ method: "GET" }).handler(async (
       const pair = pick.pair;
       const created = num(pair.pairCreatedAt);
       const ageMin = created > 0 ? Math.max(0, (Date.now() - created) / 60000) : 0;
+      const priceUsd = num(pair.priceUsd);
+      if (!(priceUsd > 0)) continue;
       const symbol = (pair.baseToken?.symbol ?? "").replace(/\s+/g, " ").trim().slice(0, 16);
       const name = (pair.baseToken?.name ?? symbol).replace(/\s+/g, " ").trim().slice(0, 48);
       if (!symbol || EXPLICIT.test(symbol) || EXPLICIT.test(name)) continue;
@@ -93,7 +95,7 @@ export const fetchPublicTape = createServerFn({ method: "GET" }).handler(async (
         symbol,
         name: name || symbol,
         venue: pick.venue,
-        priceUsd: num(pair.priceUsd),
+        priceUsd,
         volume1hUsd: num(pair.volume?.h1),
         liquidityUsd: num(pair.liquidity?.usd),
         mcapUsd: num(pair.marketCap) || num(pair.fdv),

@@ -10,17 +10,19 @@ import { bootLive, reconnectPhantom } from "@/lib/desk/solana-wallet";
 import { AGENT_META, equityOf } from "@/lib/desk/engine";
 import { compactUsd, deskClock, money, pct, pxPrice } from "@/lib/desk/format";
 import { fetchPublicTape } from "@/lib/desk/public-tape";
+import { markPrices, screenMint, type ScreenResult } from "@/lib/desk/live-chain";
 import { bootDesk, useDesk } from "@/lib/desk/store";
-import type { AgentId, DeskLog, Fill, TapeRow } from "@/lib/desk/types";
+import type { AgentId, DeskLog, Fill, PublicPairDTO, TapeRow } from "@/lib/desk/types";
 import { cn } from "@/lib/utils";
 
 const RULES = [
-  "Mint revoked",
-  "LP locked",
-  "Top 10 ≤ 20%",
+  "Public listings only",
   "1h vol ≥ $50k",
-  "Clean dev",
   "Score ≥ 0.60",
+  "RugCheck gates required",
+  "Creator history required",
+  "Paper fills only",
+  "Prices refresh every 20s",
   "Size ≤ 8%",
   "Stop −6%",
   "Trail after +12%",
@@ -71,12 +73,66 @@ export function DeskApp() {
   useEffect(() => {
     if (!ready) return;
     let stop = false;
+    let pulling = false;
+    const safetyCache = new Map<string, ScreenResult>();
+    const safetyAttemptAt = new Map<string, number>();
     const pull = async () => {
+      if (pulling) return;
+      pulling = true;
       try {
         const res = await fetchPublicTape();
-        if (!stop) useDesk.getState().ingestPublic(res);
+        if (stop) return;
+        if (!res.ok) {
+          useDesk.getState().ingestPublic(res);
+        } else {
+          const pairs: PublicPairDTO[] = [];
+          for (let index = 0; index < res.pairs.length; index += 2) {
+            const batch = await Promise.all(
+              res.pairs.slice(index, index + 2).map(async (pair) => {
+                let safety = safetyCache.get(pair.mint);
+                if (!safety) {
+                  const attemptedAt = safetyAttemptAt.get(pair.mint) ?? 0;
+                  if (Date.now() - attemptedAt >= 60_000) {
+                    safetyAttemptAt.set(pair.mint, Date.now());
+                    try {
+                      safety = await screenMint({ data: { mint: pair.mint, venue: pair.venue } });
+                      if (safety.reportAvailable) safetyCache.set(pair.mint, safety);
+                    } catch {
+                      safety = undefined;
+                    }
+                  }
+                }
+                return {
+                  ...pair,
+                  safetyChecked: safety?.reportAvailable ?? false,
+                  mintRevoked: safety?.mintRevoked ?? null,
+                  freezeRevoked: safety?.freezeRevoked ?? null,
+                  lpLocked: safety?.lpLocked ?? null,
+                  top10Pct: safety?.top10 ?? null,
+                  creator: safety?.creator ?? null,
+                  devPriorRugs: null,
+                  safetyReason: safety?.ok ? null : safety?.reason ?? "RugCheck report unavailable.",
+                };
+              }),
+            );
+            pairs.push(...batch);
+            if (stop) return;
+          }
+          useDesk.getState().ingestPublic({ ...res, pairs });
+        }
       } catch {
         if (!stop) useDesk.getState().ingestPublic({ ok: false, pairs: [], scanned: 0, dropped: 0 });
+      } finally {
+        pulling = false;
+      }
+      const mints = useDesk.getState().opens.map((position) => position.mint);
+      if (!stop && mints.length > 0) {
+        try {
+          const marks = await markPrices({ data: { mints } });
+          if (!stop && marks.ok) useDesk.getState().markPaperPrices(marks.prices);
+        } catch {
+          // Keep the last public mark until the next refresh.
+        }
       }
     };
     void pull();
@@ -159,7 +215,7 @@ function Header() {
   const liveStatus = useLive((s) => s.status);
   const [confirmReset, setConfirmReset] = useState(false);
 
-  const tapeLabel = publicTape === "live" ? "Public tape live" : publicTape === "offline" ? "Public tape offline" : "Public tape connecting";
+  const tapeLabel = publicTape === "live" ? "Live market · paper trades" : publicTape === "offline" ? "Live market offline" : "Live market connecting";
 
   return (
     <header className="w-full min-w-0 shrink-0 border-b border-line">

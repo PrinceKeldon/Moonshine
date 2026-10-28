@@ -11,9 +11,14 @@ const TOKEN_PROGRAMS = [
 
 export type ScreenResult = {
   ok: boolean;
+  reportAvailable: boolean;
   reason: string;
+  mintRevoked: boolean | null;
+  freezeRevoked: boolean | null;
+  lpLocked: boolean | null;
   top10: number | null;
   lpLockedPct: number | null;
+  creator: string | null;
 };
 
 export type SwapBuild = {
@@ -83,17 +88,26 @@ function num(value: unknown): number {
   return Number.isFinite(n) ? n : NaN;
 }
 
-function judge(report: unknown, venue: "pump.fun" | "raydium"): ScreenResult {
-  if (!report || typeof report !== "object") return { ok: false, reason: "RugCheck returned nothing.", top10: null, lpLockedPct: null };
+function judge(report: unknown): ScreenResult {
+  const empty = (reason: string): ScreenResult => ({
+    ok: false,
+    reportAvailable: false,
+    reason,
+    mintRevoked: null,
+    freezeRevoked: null,
+    lpLocked: null,
+    top10: null,
+    lpLockedPct: null,
+    creator: null,
+  });
+  if (!report || typeof report !== "object") return empty("RugCheck returned nothing.");
   const row = report as Record<string, unknown>;
   const token = row.token && typeof row.token === "object" ? (row.token as Record<string, unknown>) : null;
-  if (!token) return { ok: false, reason: "RugCheck has no mint record yet.", top10: null, lpLockedPct: null };
-  if (!("mintAuthority" in token) || token.mintAuthority != null) {
-    return { ok: false, reason: "Mint authority is still live.", top10: null, lpLockedPct: null };
-  }
-  if (!("freezeAuthority" in token) || token.freezeAuthority != null) {
-    return { ok: false, reason: "Freeze authority is still live.", top10: null, lpLockedPct: null };
-  }
+  if (!token) return empty("RugCheck has no mint record yet.");
+  const mintRevoked = "mintAuthority" in token ? token.mintAuthority == null : null;
+  const freezeRevoked = "freezeAuthority" in token ? token.freezeAuthority == null : null;
+  const creatorValue = row.creator ?? token.creator;
+  const creator = typeof creatorValue === "string" && isSolanaAddress(creatorValue) ? creatorValue : null;
 
   const risks = Array.isArray(row.risks) ? row.risks : [];
   for (const risk of risks) {
@@ -102,16 +116,17 @@ function judge(report: unknown, venue: "pump.fun" | "raydium"): ScreenResult {
     const level = "level" in risk ? String(risk.level).toLowerCase() : "";
     const lower = name.toLowerCase();
     if (level === "danger" || level === "critical") {
-      return { ok: false, reason: `RugCheck danger: ${name}.`, top10: null, lpLockedPct: null };
+      return { ...empty(`RugCheck danger: ${name}.`), reportAvailable: true, mintRevoked, freezeRevoked, creator };
     }
     if (lower.includes("honeypot") || lower.includes("mint authority") || lower.includes("freeze")) {
-      return { ok: false, reason: `RugCheck: ${name}.`, top10: null, lpLockedPct: null };
+      return { ...empty(`RugCheck: ${name}.`), reportAvailable: true, mintRevoked, freezeRevoked, creator };
     }
   }
 
   const pcts: number[] = [];
-  if (Array.isArray(row.topHolders)) {
-    for (const holder of row.topHolders) {
+  const topHolders = Array.isArray(row.topHolders) ? row.topHolders : [];
+  if (topHolders.length > 0) {
+    for (const holder of topHolders) {
       if (!holder || typeof holder !== "object" || !("pct" in holder)) continue;
       const pct = num(holder.pct);
       if (Number.isFinite(pct)) pcts.push(pct);
@@ -121,23 +136,35 @@ function judge(report: unknown, venue: "pump.fun" | "raydium"): ScreenResult {
   const usable = pcts[0] !== undefined && pcts[0] > 35 ? pcts.slice(1) : pcts;
   const top10 = usable.slice(0, 10).reduce((sum, pct) => sum + pct, 0);
   const counted = Math.min(10, usable.length);
-  if (counted > 0 && top10 > 20) {
-    return { ok: false, reason: `Top holders control ${top10.toFixed(1)}% (limit 20%).`, top10, lpLockedPct: null };
-  }
+  const holderTotal = num(row.totalHolders);
+  const holderTarget = Number.isFinite(holderTotal) && holderTotal > 0 ? Math.min(10, holderTotal) : 10;
+  const holdersComplete = counted >= holderTarget;
 
   const lp = num(row.lpLockedPct);
   const lpLockedPct = Number.isFinite(lp) ? lp : null;
-  if (venue === "raydium" && lpLockedPct !== null && lpLockedPct < 80) {
-    return { ok: false, reason: `LP lock is ${lpLockedPct.toFixed(0)}% (need 80% on Raydium).`, top10: counted ? top10 : null, lpLockedPct };
-  }
-
-  const holderNote = counted ? `top holders ${top10.toFixed(1)}%` : "holder table missing";
+  const lpLocked = lpLockedPct !== null ? lpLockedPct >= 80 : null;
+  const failures: string[] = [];
+  if (mintRevoked !== true) failures.push(mintRevoked === false ? "Mint authority is live" : "Mint authority is unknown");
+  if (freezeRevoked !== true) failures.push(freezeRevoked === false ? "Freeze authority is live" : "Freeze authority is unknown");
+  if (!holdersComplete) failures.push("Top-holder data is incomplete");
+  else if (top10 > 20) failures.push(`Top holders control ${top10.toFixed(1)}% (limit 20%)`);
+  if (lpLocked !== true) failures.push(lpLockedPct === null ? "LP lock is unknown" : `LP lock is ${lpLockedPct.toFixed(0)}% (need 80%)`);
+  if (!creator) failures.push("Creator address is missing");
+  const holderNote = holdersComplete ? `top holders ${top10.toFixed(1)}%` : "top-holder data incomplete";
   const lpNote = lpLockedPct === null ? "LP lock unknown" : `LP lock ${lpLockedPct.toFixed(0)}%`;
+  const reason = failures.length > 0
+    ? `${failures.join(". ")}.`
+    : `Mint and freeze authority revoked; ${holderNote}; ${lpNote}. Creator identified.`;
   return {
-    ok: true,
-    reason: `Mint and freeze revoked. ${holderNote}. ${lpNote}.`,
-    top10: counted ? top10 : null,
+    ok: failures.length === 0,
+    reportAvailable: true,
+    reason,
+    mintRevoked,
+    freezeRevoked,
+    lpLocked,
+    top10: holdersComplete ? top10 : null,
     lpLockedPct,
+    creator,
   };
 }
 
@@ -154,11 +181,11 @@ export const screenMint = createServerFn({ method: "POST" })
         headers: { accept: "application/json" },
         signal: AbortSignal.timeout(8000),
       });
-      if (res.status === 429) return { ok: false, reason: "RugCheck is rate limiting. Skipped this pass.", top10: null, lpLockedPct: null };
-      if (!res.ok) return { ok: false, reason: "RugCheck did not answer.", top10: null, lpLockedPct: null };
-      return judge(await res.json(), data.venue);
+      if (res.status === 429) return { ...judge(null), reason: "RugCheck is rate limiting. Skipped this pass." };
+      if (!res.ok) return { ...judge(null), reason: "RugCheck did not answer." };
+      return judge(await res.json());
     } catch {
-      return { ok: false, reason: "RugCheck did not answer.", top10: null, lpLockedPct: null };
+      return { ...judge(null), reason: "RugCheck did not answer." };
     }
   });
 

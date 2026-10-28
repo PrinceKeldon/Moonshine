@@ -20,15 +20,18 @@ export type Pair = {
   buys1h: number;
   sells1h: number;
   mintRevoked: boolean | null;
+  freezeRevoked: boolean | null;
   lpLocked: boolean | null;
   top10Pct: number | null;
   devWallet: string | null;
   devPriorRugs: number | null;
+  safetyReason?: string | null;
   source: "index" | "public";
 };
 
 export type Gates = {
   mintRevoked: boolean;
+  freezeRevoked: boolean;
   lpLocked: boolean;
   top10Pct: number;
   volume1hUsd: number;
@@ -182,6 +185,7 @@ export type DeskState = {
   tape: TapeRow[];
   inbox: Pair[];
   seenMints: string[];
+  checkedMints: string[];
   rugDevs: string[];
   reissue: Pair[];
   revengeUntil: Record<string, number>;
@@ -206,6 +210,14 @@ export type PublicPairDTO = {
   ageMin: number;
   buys1h: number;
   sells1h: number;
+  safetyChecked?: boolean;
+  mintRevoked?: boolean | null;
+  freezeRevoked?: boolean | null;
+  lpLocked?: boolean | null;
+  top10Pct?: number | null;
+  creator?: string | null;
+  devPriorRugs?: number | null;
+  safetyReason?: string | null;
 };
 
 export type PublicTapeResult = {
