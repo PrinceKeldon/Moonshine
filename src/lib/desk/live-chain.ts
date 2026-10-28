@@ -125,9 +125,18 @@ function judge(report: unknown): ScreenResult {
 
   const pcts: number[] = [];
   const topHolders = Array.isArray(row.topHolders) ? row.topHolders : [];
+  const knownAccounts = row.knownAccounts && typeof row.knownAccounts === "object"
+    ? (row.knownAccounts as Record<string, unknown>)
+    : {};
   if (topHolders.length > 0) {
     for (const holder of topHolders) {
       if (!holder || typeof holder !== "object" || !("pct" in holder)) continue;
+      const entry = holder as Record<string, unknown>;
+      const known = [entry.owner, entry.address]
+        .map((address) => typeof address === "string" ? knownAccounts[address] : null)
+        .find((account) => account && typeof account === "object") as Record<string, unknown> | undefined;
+      const knownType = typeof known?.type === "string" ? known.type.toUpperCase() : "";
+      if (knownType === "AMM" || knownType === "LOCKER") continue;
       const pct = num(holder.pct);
       if (Number.isFinite(pct)) pcts.push(pct);
     }
@@ -140,7 +149,31 @@ function judge(report: unknown): ScreenResult {
   const holderTarget = Number.isFinite(holderTotal) && holderTotal > 0 ? Math.min(10, holderTotal) : 10;
   const holdersComplete = counted >= holderTarget;
 
-  const lp = num(row.lpLockedPct);
+  const marketRows = Array.isArray(row.markets) ? row.markets : [];
+  const marketLocks = marketRows.flatMap((market) => {
+    if (!market || typeof market !== "object" || !("lp" in market) || !market.lp || typeof market.lp !== "object") return [];
+    const lp = market.lp as Record<string, unknown>;
+    const pct = num(lp.lpLockedPct);
+    const locked = num(lp.lpLocked);
+    const total = num(lp.lpTotalSupply);
+    const baseUsd = num(lp.baseUSD);
+    const quoteUsd = num(lp.quoteUSD);
+    const lockedUsd = num(lp.lpLockedUSD);
+    const weight = Number.isFinite(baseUsd) && Number.isFinite(quoteUsd) && baseUsd + quoteUsd > 0
+      ? baseUsd + quoteUsd
+      : Number.isFinite(lockedUsd) && lockedUsd > 0
+        ? lockedUsd
+        : 1;
+    if (Number.isFinite(pct)) return [{ pct, weight }];
+    if (Number.isFinite(locked) && Number.isFinite(total) && total > 0) return [{ pct: locked / total * 100, weight }];
+    return [];
+  });
+  const reportLpPct = num(row.lpLockedPct);
+  const lp = Number.isFinite(reportLpPct)
+    ? reportLpPct
+    : marketLocks.length > 0
+      ? marketLocks.reduce((sum, item) => sum + item.pct * item.weight, 0) / marketLocks.reduce((sum, item) => sum + item.weight, 0)
+      : NaN;
   const lpLockedPct = Number.isFinite(lp) ? lp : null;
   const lpLocked = lpLockedPct !== null ? lpLockedPct >= 80 : null;
   const failures: string[] = [];
