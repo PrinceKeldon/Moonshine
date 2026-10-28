@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Copy, KeyRound, Wallet, X } from "lucide-react";
 import { requestFlatten, requestSell, runLiveCycle } from "@/lib/desk/autotrade";
-import { ticketSol } from "@/lib/desk/live-score";
+import { SOL_MINT, ticketSol } from "@/lib/desk/live-score";
+import { buildSwap } from "@/lib/desk/live-chain";
 import { activeAddress, useLive } from "@/lib/desk/live-store";
 import {
   connectPhantom,
@@ -18,6 +19,7 @@ import { cn } from "@/lib/utils";
 
 const field =
   "w-full min-h-11 rounded-md border border-line bg-bg px-3 font-mono text-sm text-fg placeholder:text-dim";
+const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
 function short(value: string): string {
   if (value.length <= 12) return value;
@@ -78,6 +80,18 @@ function LiveSheet({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [previewMint, setPreviewMint] = useState(USDC_MINT);
+  const [previewSol, setPreviewSol] = useState("0.01");
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewResult, setPreviewResult] = useState<{
+    wallet: string;
+    outputMint: string;
+    solIn: number;
+    outAmount: string;
+    impact: number | null;
+    builtAt: number;
+  } | null>(null);
   const hasExtension = typeof window !== "undefined" && getProvider() !== null;
   const address = activeAddress({ signer, phantom, deskPubkey });
   const nextTicket = sol === null ? null : ticketSol(sol, solPerTrade);
@@ -109,6 +123,65 @@ function LiveSheet({ onClose }: { onClose: () => void }) {
       setNotice("Copied.");
     } catch {
       setError("Copy failed. Select the address instead.");
+    }
+  }
+
+  async function buildPreview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPreviewError(null);
+    setPreviewResult(null);
+    if (armed || positions.length > 0 || busy) {
+      setPreviewError("Disarm Live and close any chain positions before previewing; live position management can submit swaps.");
+      return;
+    }
+    const amountSol = Number(previewSol);
+    const outputMint = previewMint.trim();
+    if (!phantom) {
+      setPreviewError("Connect a wallet first. The preview uses its public address only.");
+      return;
+    }
+    if (outputMint.length < 32 || outputMint.length > 44 || !/^[1-9A-HJ-NP-Za-km-z]+$/.test(outputMint)) {
+      setPreviewError("Enter a valid Solana token mint.");
+      return;
+    }
+    if (outputMint === SOL_MINT) {
+      setPreviewError("Choose a token mint different from wrapped SOL.");
+      return;
+    }
+    if (!Number.isFinite(amountSol) || amountSol <= 0 || amountSol > 0.1) {
+      setPreviewError("Use an amount greater than 0 and no more than 0.1 SOL.");
+      return;
+    }
+
+    setPreviewBusy(true);
+    try {
+      const built = await buildSwap({
+        data: {
+          user: phantom,
+          inputMint: SOL_MINT,
+          outputMint,
+          amount: String(Math.floor(amountSol * 1_000_000_000)),
+          slippageBps,
+        },
+      });
+      if (!built.ok || !built.tx || !built.outAmount) {
+        setPreviewError(built.error ?? "Jupiter did not build an unsigned transaction.");
+        return;
+      }
+      setPreviewResult({
+        wallet: phantom,
+        outputMint,
+        solIn: amountSol,
+        outAmount: built.outAmount,
+        impact: built.impact,
+        builtAt: Date.now(),
+      });
+      // Deliberately retain only quote details. The unsigned transaction is discarded here.
+      built.tx = null;
+    } catch (caught) {
+      setPreviewError(caught instanceof Error ? caught.message : "The preview could not be built.");
+    } finally {
+      setPreviewBusy(false);
     }
   }
 
@@ -254,6 +327,54 @@ function LiveSheet({ onClose }: { onClose: () => void }) {
                     Fund desk
                   </button>
                 </form>
+              ) : null}
+            </div>
+
+            <div className="mt-3 rounded-md border border-line bg-bg px-3 py-3">
+              <h3 className="text-sm font-medium">Build-only swap preview</h3>
+              <p className="mt-1 text-xs text-dim">
+                Uses the connected wallet address to build an unsigned Jupiter transaction, then discards it. No signature or transaction submission occurs here.
+              </p>
+              <form className="mt-3 flex flex-col gap-2" onSubmit={(event) => void buildPreview(event)}>
+                <label className="text-xs text-muted">
+                  Output token mint
+                  <input
+                    value={previewMint}
+                    onChange={(event) => setPreviewMint(event.target.value)}
+                    spellCheck={false}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    className={cn(field, "mt-1")}
+                  />
+                </label>
+                <label className="text-xs text-muted">
+                  Input amount (SOL, max 0.1)
+                  <input
+                    value={previewSol}
+                    onChange={(event) => setPreviewSol(event.target.value)}
+                    inputMode="decimal"
+                    className={cn(field, "mt-1")}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={!phantom || previewBusy || armed || positions.length > 0 || busy}
+                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-line px-3 text-sm disabled:opacity-60"
+                >
+                  {previewBusy ? "Building preview…" : "Build unsigned preview"}
+                </button>
+              </form>
+              {!phantom ? <p className="mt-2 text-xs text-muted">Connect a wallet above to enable the wallet-specific preview.</p> : null}
+              {armed || positions.length > 0 ? <p className="mt-2 text-xs text-amber">Disarm Live and close chain positions before previewing.</p> : null}
+              {previewError ? <p className="mt-2 text-sm text-down">{previewError}</p> : null}
+              {previewResult ? (
+                <div className="mt-3 rounded-md border border-up/40 px-3 py-2 text-xs">
+                  <p className="font-medium text-up">Unsigned transaction built and discarded · {clock(previewResult.builtAt)}</p>
+                  <p className="mt-1 font-mono text-dim">Wallet {short(previewResult.wallet)}</p>
+                  <p className="mt-1 font-mono text-dim">{previewResult.solIn} SOL → {previewResult.outAmount} raw token units</p>
+                  <p className="mt-1 text-dim">Price impact {previewResult.impact === null ? "unknown" : `${(previewResult.impact * 100).toFixed(3)}%`}</p>
+                  <p className="mt-1 break-all font-mono text-dim">Mint {previewResult.outputMint}</p>
+                </div>
               ) : null}
             </div>
           </section>
