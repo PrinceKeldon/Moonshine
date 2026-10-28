@@ -44,6 +44,8 @@ export type DeskActions = {
   setPaper: () => void;
   reset: () => void;
   ingestPublic: (payload: PublicTapeResult) => void;
+  stagePublicCandidates: (payload: PublicTapeResult) => void;
+  setScanState: (state: DeskState["scanState"]) => void;
   markPaperPrices: (prices: Record<string, number>) => void;
   saveWatch: (address: string, snapshot: WatchSnapshot) => void;
   clearWatch: () => void;
@@ -90,6 +92,16 @@ export const useDesk = create<DeskState & DeskActions>()(
   persist(
     (set) => ({
       ...createDesk(),
+      stagePublicCandidates: (payload) =>
+        set((cur) => ({
+          ...cur,
+          scanState: "screening",
+          marketUpdatedAt: Date.now(),
+          marketScanned: payload.scanned,
+          marketDropped: payload.dropped,
+          marketCandidates: payload.pairs.map((pair) => ({ ...pair, safetyState: "checking" })),
+        })),
+      setScanState: (scanState) => set({ scanState }),
       tick: () =>
         set((cur) => {
           if (!cur.running) return cur;
@@ -146,6 +158,7 @@ export const useDesk = create<DeskState & DeskActions>()(
             return {
               ...cur,
               publicTape: "offline",
+              scanState: "offline",
               tapeNote: "Public tape offline. Paper trading is paused until live market data returns.",
             };
           }
@@ -184,6 +197,11 @@ export const useDesk = create<DeskState & DeskActions>()(
             ...cur,
             opens,
             publicTape: "live",
+            scanState: "live",
+            marketUpdatedAt: Date.now(),
+            marketScanned: payload.scanned,
+            marketDropped: payload.dropped,
+            marketCandidates: payload.pairs,
             tapeNote: note,
             inbox: inbox.slice(0, 30),
             seenMints: [...seen].slice(-400),

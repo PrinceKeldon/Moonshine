@@ -185,6 +185,11 @@ export type DeskState = {
   equity: EquityPoint[];
   tape: TapeRow[];
   inbox: Pair[];
+  marketCandidates: PublicPairDTO[];
+  scanState: "idle" | "fetching" | "screening" | "live" | "offline";
+  marketUpdatedAt: number | null;
+  marketScanned: number;
+  marketDropped: number;
   seenMints: string[];
   checkedMints: string[];
   rugDevs: string[];
@@ -211,6 +216,7 @@ export type PublicPairDTO = {
   ageMin: number;
   buys1h: number;
   sells1h: number;
+  safetyState?: "checking" | "checked" | "unavailable";
   safetyChecked?: boolean;
   mintRevoked?: boolean | null;
   freezeRevoked?: boolean | null;

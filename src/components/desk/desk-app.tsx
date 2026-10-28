@@ -79,35 +79,55 @@ export function DeskApp() {
     const pull = async () => {
       if (pulling) return;
       pulling = true;
+      useDesk.getState().setScanState("fetching");
       try {
         const res = await fetchPublicTape();
         if (stop) return;
         if (!res.ok) {
           useDesk.getState().ingestPublic(res);
         } else {
+          useDesk.getState().stagePublicCandidates(res);
           const pairs: PublicPairDTO[] = [];
           for (let index = 0; index < res.pairs.length; index += 2) {
             const batch = await Promise.all(
               res.pairs.slice(index, index + 2).map(async (pair) => {
                 let safety = safetyCache.get(pair.mint);
-                if (!safety) {
-                  const attemptedAt = safetyAttemptAt.get(pair.mint) ?? 0;
-                  if (Date.now() - attemptedAt >= 60_000) {
-                    safetyAttemptAt.set(pair.mint, Date.now());
-                    try {
-                      safety = await screenMint({
-                        data: { mint: pair.mint, venue: pair.venue, includeCreatorHistory: true },
-                      });
-                      if (safety.reportAvailable && (!safety.creator || safety.creatorHistoryAvailable)) {
-                        safetyCache.set(pair.mint, safety);
-                      }
-                    } catch {
-                      safety = undefined;
-                    }
+                const attemptedAt = safetyAttemptAt.get(pair.mint) ?? 0;
+                const retryDue =
+                  safety !== undefined &&
+                  Date.now() - attemptedAt >= 60_000 &&
+                  (!safety.reportAvailable || (Boolean(safety.creator) && !safety.creatorHistoryAvailable));
+                if (!safety || retryDue) {
+                  safetyAttemptAt.set(pair.mint, Date.now());
+                  try {
+                    safety = await screenMint({
+                      data: { mint: pair.mint, venue: pair.venue, includeCreatorHistory: true },
+                    });
+                  } catch {
+                    safety = {
+                      ok: false,
+                      reportAvailable: false,
+                      reason: "RugCheck request failed.",
+                      mintRevoked: null,
+                      freezeRevoked: null,
+                      lpLocked: null,
+                      top10: null,
+                      lpLockedPct: null,
+                      creator: null,
+                      creatorHistoryAvailable: false,
+                      creatorTokenCount: null,
+                      devPriorRugs: null,
+                    };
                   }
+                  safetyCache.set(pair.mint, safety);
                 }
                 return {
                   ...pair,
+                  safetyState: safety?.reportAvailable
+                    ? ("checked" as const)
+                    : safety
+                      ? ("unavailable" as const)
+                      : ("checking" as const),
                   safetyChecked: safety?.reportAvailable ?? false,
                   mintRevoked: safety?.mintRevoked ?? null,
                   freezeRevoked: safety?.freezeRevoked ?? null,
@@ -211,6 +231,7 @@ function Header() {
   const overnight = useDesk((s) => s.overnight);
   const mode = useDesk((s) => s.mode);
   const publicTape = useDesk((s) => s.publicTape);
+  const scanState = useDesk((s) => s.scanState);
   const toggleRun = useDesk((s) => s.toggleRun);
   const startNight = useDesk((s) => s.startNight);
   const openRecap = useDesk((s) => s.openRecap);
@@ -221,7 +242,16 @@ function Header() {
   const liveStatus = useLive((s) => s.status);
   const [confirmReset, setConfirmReset] = useState(false);
 
-  const tapeLabel = publicTape === "live" ? "Live market · paper trades" : publicTape === "offline" ? "Live market offline" : "Live market connecting";
+  const tapeLabel =
+    scanState === "fetching"
+      ? "Fetching public market"
+      : scanState === "screening"
+      ? "Screening live candidates"
+      : publicTape === "live"
+        ? "Live market · paper trades"
+        : publicTape === "offline"
+          ? "Live market offline"
+          : "Live market connecting";
 
   return (
     <header className="w-full min-w-0 shrink-0 border-b border-line">
@@ -362,7 +392,7 @@ function Workspace() {
   return (
     <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
       <div className="grid min-h-0 flex-1 gap-2 px-3 pb-2 lg:grid-cols-12">
-        <Panel title="Tape" hint="Scout → handoff" className={cn("lg:col-span-3", tab === "tape" ? "flex" : "hidden lg:flex")}>
+        <Panel title="Scanner" hint="Live candidates · agent decisions" className={cn("lg:col-span-3", tab === "tape" ? "flex" : "hidden lg:flex")}>
           <Tape />
         </Panel>
         <Panel title="Book" hint="Equity and open risk" className={cn("lg:col-span-5", tab === "book" ? "flex" : "hidden lg:flex")}>
@@ -429,29 +459,135 @@ function Panel({
 
 function Tape() {
   const tape = useDesk((s) => s.tape);
-  if (tape.length === 0) {
-    return <p className="px-3 py-4 text-sm text-muted">Scout is quiet. The next print lands on the minute.</p>;
-  }
+  const candidates = useDesk((s) => s.marketCandidates);
+  const inbox = useDesk((s) => s.inbox);
+  const scanState = useDesk((s) => s.scanState);
+  const marketUpdatedAt = useDesk((s) => s.marketUpdatedAt);
+  const marketScanned = useDesk((s) => s.marketScanned);
+  const marketDropped = useDesk((s) => s.marketDropped);
+  const scanLabel =
+    scanState === "screening"
+      ? "Checking RugCheck and creator history"
+      : scanState === "offline"
+        ? "Feed offline · last snapshot shown"
+        : scanState === "fetching"
+          ? "Fetching public market"
+          : scanState === "live"
+            ? "Public feed live · refreshes every 20s"
+            : "Waiting for the public feed";
   return (
-    <ul className="scroll min-h-0 flex-1 overflow-y-auto">
-      {tape.map((row) => (
-        <li key={row.id} className="border-b border-line px-3 py-2">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="font-mono text-sm">
-              {row.symbol}
-              <span className="ml-2 text-xs text-dim">{row.venue}</span>
-            </span>
-            <Outcome row={row} />
-          </div>
-          <p className="mt-0.5 font-mono text-xs text-dim">
-            {deskClock(row.t)} · {row.source === "public" ? "public" : "index"} · {compactUsd(row.volume1hUsd)} 1h
-            {row.score !== null ? ` · ${row.score.toFixed(2)}` : ""}
-          </p>
-          <p className="mt-1 line-clamp-2 text-xs leading-snug text-muted">{row.reason}</p>
-        </li>
-      ))}
-    </ul>
+    <div className="scroll min-h-0 flex-1 overflow-y-auto">
+      <div className="border-b border-line px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-fg">Live candidates</h3>
+          <span className="font-mono text-xs text-muted">{candidates.length} · {inbox.length} queued</span>
+        </div>
+        <p className="mt-1 text-xs text-dim">
+          {scanLabel}
+          {marketUpdatedAt ? ` · ${new Date(marketUpdatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : ""}
+          {marketScanned > 0 ? ` · ${marketScanned} mints scanned` : ""}
+          {marketDropped > 0 ? ` · ${marketDropped} other venues skipped` : ""}
+        </p>
+      </div>
+      {candidates.length === 0 ? (
+        <p className="px-3 py-3 text-sm text-muted">
+          {scanState === "offline" ? "No current snapshot. The scanner will resume when public data returns." : "No Pump.fun or Raydium candidates in this feed snapshot."}
+        </p>
+      ) : (
+        <ul>
+          {candidates.map((pair) => <CandidateRow key={pair.mint} pair={pair} />)}
+        </ul>
+      )}
+      <div className="border-y border-line bg-bg/40 px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-fg">Agent decisions</h3>
+          <span className="font-mono text-xs text-muted">{tape.length}</span>
+        </div>
+      </div>
+      {tape.length === 0 ? (
+        <p className="px-3 py-3 text-sm text-muted">Candidates are queued for the scan pipeline. Decisions will appear here.</p>
+      ) : (
+        <ul>
+          {tape.map((row) => (
+            <li key={`${row.id}-${row.t}`} className="border-b border-line px-3 py-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-mono text-sm">
+                  {row.symbol}
+                  <span className="ml-2 text-xs text-dim">{row.venue}</span>
+                </span>
+                <Outcome row={row} />
+              </div>
+              <p className="mt-0.5 font-mono text-xs text-dim">
+                {deskClock(row.t)} · {row.source === "public" ? "public" : "index"} · {compactUsd(row.volume1hUsd)} 1h
+                {row.score !== null ? ` · ${row.score.toFixed(2)}` : ""}
+              </p>
+              <p className="mt-1 line-clamp-3 text-xs leading-snug text-muted">{row.reason}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
+}
+
+function CandidateRow({ pair }: { pair: PublicPairDTO }) {
+  const creator = pair.creator ? `${pair.creator.slice(0, 5)}…${pair.creator.slice(-5)}` : null;
+  let gateLabel = "Screening";
+  let gateClass = "text-amber";
+  let detail = "RugCheck and creator history are being checked.";
+  if (pair.safetyState === "unavailable") {
+    gateLabel = "Safety data unavailable";
+    gateClass = "text-down";
+    detail = pair.safetyReason ?? "RugCheck did not return a report. Candidate is blocked.";
+  } else if (pair.safetyState === "checked" && pair.safetyReason) {
+    gateLabel = "RugCheck blocked";
+    gateClass = "text-down";
+    detail = pair.safetyReason;
+  } else if (pair.safetyState === "checked" && !creator) {
+    gateLabel = "Creator unknown";
+    gateClass = "text-down";
+    detail = "RugCheck did not identify a creator; candidate is blocked.";
+  } else if (pair.safetyState === "checked" && pair.devPriorRugs === null) {
+    gateLabel = "Creator history unknown";
+    gateClass = "text-down";
+    detail = "No indexed Scorp record or lookup failed. Unknown stays blocked.";
+  } else if (pair.devPriorRugs && pair.devPriorRugs > 0) {
+    gateLabel = `${pair.devPriorRugs} prior rugs reported`;
+    gateClass = "text-down";
+    detail = `Scorp tracked ${pair.creatorTokenCount ?? "some"} creator launches.`;
+  } else if (pair.safetyState === "checked" && pair.devPriorRugs === 0) {
+    gateLabel = "Safety gates clear";
+    gateClass = "text-up";
+    detail = `Scorp tracked ${pair.creatorTokenCount ?? 0} launches with 0 reported rugs; volume and score still gate entry.`;
+  }
+
+  return (
+    <li className="border-b border-line px-3 py-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="min-w-0 truncate font-mono text-sm">
+          {pair.symbol}<span className="ml-2 text-xs text-dim">{pair.venue}</span>
+        </span>
+        <span className="num shrink-0 font-mono text-sm">{pxPrice(pair.priceUsd)}</span>
+      </div>
+      <p className="mt-0.5 truncate text-xs text-dim">{pair.name} · {Math.floor(pair.ageMin)}m old · liquidity {compactUsd(pair.liquidityUsd)}</p>
+      <p className="mt-0.5 font-mono text-xs text-dim">1h volume {compactUsd(pair.volume1hUsd)} · mcap {compactUsd(pair.mcapUsd)}</p>
+      <p className="mt-1 font-mono text-[10px] text-dim">
+        Mint {authorityState(pair.mintRevoked)} · freeze {authorityState(pair.freezeRevoked)} · LP {pair.lpLocked === null || pair.lpLocked === undefined ? "unknown" : pair.lpLocked ? "locked" : "unlocked"} · top 10 {pair.top10Pct == null ? "unknown" : `${pair.top10Pct.toFixed(1)}%`}
+      </p>
+      <p className={cn("mt-1 text-xs font-medium", gateClass)}>{gateLabel}</p>
+      <p className="line-clamp-2 text-xs leading-snug text-muted">{detail}</p>
+      <div className="mt-1 flex items-center justify-between gap-2">
+        <span className="truncate font-mono text-[10px] text-dim">Creator {creator ?? "not identified"}</span>
+        <a className="shrink-0 text-xs text-up underline-offset-2 hover:underline" href={`https://dexscreener.com/solana/${pair.mint}`} target="_blank" rel="noreferrer">Chart</a>
+      </div>
+    </li>
+  );
+}
+
+function authorityState(revoked: boolean | null | undefined): string {
+  if (revoked === true) return "revoked";
+  if (revoked === false) return "live";
+  return "unknown";
 }
 
 function Outcome({ row }: { row: TapeRow }) {
