@@ -1,7 +1,17 @@
 import { fetchWallet } from "@/lib/desk/wallet";
 import { fetchPublicTape } from "@/lib/desk/public-tape";
 import { buildSwap, markPrices, screenMint, tokenHolding } from "@/lib/desk/live-chain";
-import { SOL_MINT, liveScore, tapeBlock, ticketSol, MIN_LIVE_SCORE, MIN_TICKET_SOL, MAX_PCT } from "@/lib/desk/live-score";
+import {
+  SOL_MINT,
+  liveScore,
+  tapeBlock,
+  ticketSol,
+  isSoftTapeBlock,
+  isBreakoutCandidate,
+  MIN_LIVE_SCORE,
+  MIN_TICKET_SOL,
+  MAX_PCT,
+} from "@/lib/desk/live-score";
 import { activeAddress, dayStamp, useLive, type LiveOrder, type LivePosition } from "@/lib/desk/live-store";
 import { signAndSend } from "@/lib/desk/solana-wallet";
 import { useDesk } from "@/lib/desk/store";
@@ -276,10 +286,19 @@ async function cycle() {
         continue;
       }
 
-      liveSay("scout", "scan", pair.symbol, `[live] Saw ${pair.symbol} on ${pair.venue}. Handing to Filter.`, "work");
+      const track = isBreakoutCandidate(pair) ? "breakout" : "new";
+      liveSay(
+        "scout",
+        "scan",
+        pair.symbol,
+        `[live] Saw ${pair.symbol} on ${pair.venue} (${track} track, age ${pair.ageMin.toFixed(0)}m). Handing to Filter.`,
+        "work",
+      );
 
       const block = tapeBlock(pair);
       if (block) {
+        // Soft blocks (vol/liq/age-without-breakout) stay off the permanent seen set so a later spike can retry.
+        if (!isSoftTapeBlock(block)) useLive.getState().remember(pair.mint);
         liveSay("filter", "kill", pair.symbol, `[live] ${block}`, "kill", { mint: pair.mint, outcome: "kill" });
         liveSay("logger", "note", pair.symbol, `[live] Logged rejection. ${block}`, "work");
         continue;
@@ -326,15 +345,27 @@ async function cycle() {
         continue;
       }
 
-      liveSay("filter", "pass", pair.symbol, `[live] All gates clear including Scorp creator history. Handing to Analyst.`, "pass");
+      const trackNote = isBreakoutCandidate(pair)
+        ? "Breakout track cleared (age > 180m, elevated vol/liq)."
+        : "New-pair track cleared.";
+      liveSay(
+        "filter",
+        "pass",
+        pair.symbol,
+        `[live] ${trackNote} Scorp creator history clean. Handing to Analyst.`,
+        "pass",
+      );
 
       const score = liveScore(pair, screen.top10);
       if (score < MIN_LIVE_SCORE) {
-        useLive.getState().remember(pair.mint);
+        // Soft: allow revisit if flow/volume improves on a later cycle.
         useLive.getState().pushOrder(
           order({ side: "buy", symbol: pair.symbol, mint: pair.mint, signature: null, status: "skipped", reason: `Score ${score.toFixed(2)} under 0.60.` }),
         );
-        liveSay("analyst", "reject", pair.symbol, `[live] Score ${score.toFixed(2)} under 0.60.`, "kill", { mint: pair.mint, outcome: "reject" });
+        liveSay("analyst", "reject", pair.symbol, `[live] Score ${score.toFixed(2)} under 0.60 (soft — may revisit).`, "kill", {
+          mint: pair.mint,
+          outcome: "reject",
+        });
         liveSay("logger", "note", pair.symbol, `[live] Logged rejection. Score ${score.toFixed(2)}.`, "work");
         continue;
       }
@@ -349,7 +380,7 @@ async function cycle() {
         });
         return;
       }
-      const note = `Bought ${size.toFixed(3)} SOL of ${pair.symbol}. Score ${score.toFixed(2)}. Cap ${(MAX_PCT * 100).toFixed(0)}%. ${screen.reason}`;
+      const note = `Bought ${size.toFixed(3)} SOL of ${pair.symbol} (${track}). Score ${score.toFixed(2)}. Cap ${(MAX_PCT * 100).toFixed(0)}%. ${screen.reason}`;
       await buy(pair, size, note);
       useLive.getState().patch({ status: note });
       return;
