@@ -30,6 +30,20 @@ filters:
   max_age_minutes: 180               # only consider pairs younger than this
   require_socials: false
 
+# --- Older-token scan (DexScreener boosts + optional explicit Solana mints) ---
+older_tokens:
+  enabled: true
+  scan_latest_boosts: true
+  scan_top_boosts: true
+  mints: []                         # add established Solana mints for continuous monitoring
+  max_pairs_per_cycle: 20
+  min_age_days: 7                   # pair age is the available proxy for token age
+  liquidity_lookback_minutes: 60    # first liquidity-spike signal needs a full lookback to warm up
+  liquidity_spike_pct: 30           # require this rise versus the stored lookback observation
+  min_baseline_liquidity_usd: 5000  # ignore tiny baselines that can create misleading percentages
+  breakout_price_change_1h_pct: 20
+  min_volume_1h_usd: 25000           # applies to liquidity spikes and price breakouts
+
 # --- Blacklists (JSON files, auto-created) ---
 blacklists:
   coins_file: "data/coin_blacklist.json"

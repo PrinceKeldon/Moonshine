@@ -14,11 +14,20 @@ from __future__ import annotations
 import asyncio
 import signal
 import sys
+import time
 from pathlib import Path
 
 from loguru import logger
 
-from bot.analysis import classify_rug_or_pump, detect_fake_volume, filter_block, score_pair, top10_pct
+from bot.analysis import (
+    classify_rug_or_pump,
+    detect_fake_volume,
+    filter_block,
+    older_token_signal,
+    pair_age_min,
+    score_pair,
+    top10_pct,
+)
 from bot.config import load_blacklist, load_config, save_blacklist
 from bot.desk import Desk
 from bot.dexscreener import DexScreenerClient
@@ -27,6 +36,24 @@ from bot.storage import Storage
 from bot.telegram_trader import TelegramTrader
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+async def get_older_token_profiles(cfg: dict, ds: DexScreenerClient) -> list[dict]:
+    older_cfg = cfg.get("older_tokens", {})
+    if not older_cfg.get("enabled", True):
+        return []
+    profiles: list[dict] = []
+    if older_cfg.get("scan_latest_boosts", True):
+        profiles.extend(await ds.get_latest_token_boosts())
+    if older_cfg.get("scan_top_boosts", True):
+        profiles.extend(await ds.get_top_token_boosts())
+    chain = cfg.get("dexscreener", {}).get("chain", "solana")
+    profiles.extend(
+        {"chainId": chain, "tokenAddress": mint}
+        for mint in older_cfg.get("mints", [])
+        if isinstance(mint, str) and mint.strip()
+    )
+    return profiles
 
 
 async def process_pair(
@@ -39,6 +66,7 @@ async def process_pair(
     store: Storage,
     tg: TelegramTrader,
     desk: Desk,
+    older_scan: bool = False,
 ) -> None:
     # Solana mints are base58 and case-sensitive: API calls and buy commands must use the
     # original string. Only the blacklist key is lowercased (see config.load_blacklist).
@@ -52,7 +80,40 @@ async def process_pair(
         return
 
     filters = cfg.get("filters", {})
-    blocked = filter_block(pair, filters)
+    older_cfg = cfg.get("older_tokens", {})
+    skip_age = False
+    if older_scan and older_cfg.get("enabled", True):
+        lookback_s = float(older_cfg.get("liquidity_lookback_minutes", 60)) * 60
+        market_change = await store.record_market_snapshot(
+            mint,
+            time.time(),
+            pair.get("liquidity_usd") or 0.0,
+            pair.get("price_usd") or 0.0,
+            lookback_s,
+        )
+        age = pair_age_min(pair)
+        if age is None:
+            desk.block(
+                pair,
+                "older_age_unknown",
+                "Cannot verify pair age for the older-token scan.",
+                outcome="skip",
+            )
+            return
+        if age >= older_cfg.get("min_age_days", 7) * 24 * 60:
+            signal = older_token_signal(pair, market_change, older_cfg)
+            if signal is None:
+                desk.block(
+                    pair,
+                    "older_no_signal",
+                    "Older pair has no qualifying liquidity spike or breakout.",
+                    outcome="skip",
+                )
+                return
+            pair = {**pair, "older_scan_signal": signal[0], "older_scan_reason": signal[1]}
+            skip_age = True
+
+    blocked = filter_block(pair, filters, skip_age=skip_age)
     if blocked:
         desk.block(pair, *blocked)
         return
@@ -140,35 +201,44 @@ async def discovery_cycle(
 
     profiles = await ds.get_latest_token_profiles()
     logger.info(f"Fetched {len(profiles)} latest token profiles")
-
+    older_cfg = cfg.get("older_tokens", {})
+    older_profiles = await get_older_token_profiles(cfg, ds)
     seen: set[str] = set()
     max_pairs = cfg.get("runtime", {}).get("max_pairs_per_cycle", 30)
-    count = 0
+    expected_chain = cfg.get("dexscreener", {}).get("chain", "solana")
+    counts = {"older": 0, "latest": 0}
+    for candidates, limit, is_older in (
+        (older_profiles, older_cfg.get("max_pairs_per_cycle", 20), True),
+        (profiles, max_pairs, False),
+    ):
+        source = "older" if is_older else "latest"
+        for profile in candidates:
+            if counts[source] >= limit:
+                break
+            chain = profile.get("chainId")
+            if chain and chain != expected_chain:
+                continue
+            mint = profile.get("tokenAddress")
+            if not mint or mint in seen:
+                continue
+            seen.add(mint)
 
-    for profile in profiles:
-        if count >= max_pairs:
-            break
-        chain = profile.get("chainId")
-        if chain and chain != cfg.get("dexscreener", {}).get("chain", "solana"):
-            continue
-        mint = profile.get("tokenAddress")
-        if not mint or mint in seen:
-            continue
-        seen.add(mint)
+            pairs = await ds.get_token_pairs(mint)
+            if not pairs:
+                continue
+            sol_pairs = [p for p in pairs if p.get("chainId") == expected_chain]
+            if not sol_pairs:
+                continue
+            best = max(sol_pairs, key=lambda p: (p.get("liquidity") or {}).get("usd") or 0)
+            normalized = ds.normalize_pair(best)
+            await process_pair(
+                normalized, cfg, coin_bl, dev_bl, ds, rc, store, tg, desk, older_scan=is_older
+            )
+            counts[source] += 1
 
-        pairs = await ds.get_token_pairs(mint)
-        if not pairs:
-            continue
-        # Prefer the highest-liquidity Solana pair
-        sol_pairs = [p for p in pairs if p.get("chainId") == "solana"]
-        if not sol_pairs:
-            continue
-        best = max(sol_pairs, key=lambda p: (p.get("liquidity") or {}).get("usd") or 0)
-        normalized = ds.normalize_pair(best)
-        await process_pair(normalized, cfg, coin_bl, dev_bl, ds, rc, store, tg, desk)
-        count += 1
-
-    logger.info(f"Cycle finished — processed {count} candidates")
+    logger.info(
+        f"Cycle finished — processed {counts['older']} older-scan and {counts['latest']} latest-profile candidates"
+    )
 
 
 async def main() -> None:

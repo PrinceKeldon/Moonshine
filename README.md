@@ -111,4 +111,12 @@ decides whether a candidate becomes a position.
 - **Counterfactuals**: each rejected or skipped token is re-priced after 1h and 24h. Query which
   gates earn their keep with `Ledger("data/ledger.db").gate_report()`: a gate whose rejected names
   average a positive move is killing winners.
+- **Older-token scan**: in addition to the latest profiles, the bot checks DexScreener's latest and
+  top boosted Solana tokens, plus any mints listed under `older_tokens.mints`. Pairs at least
+  `min_age_days` old must show either the configured 1h breakout or a tracked liquidity spike
+  before proceeding through the normal safety checks. Liquidity history is stored in
+  `data/tokens.db`, so the spike detector needs a full lookback window after first tracking a mint.
+  DexScreener does not expose a complete market-wide historical-token feed; boosts and the optional
+  mint watchlist define this scan's candidate universe. Pair creation time is used as the available
+  age proxy.
 - **Tests**: `python -m unittest discover -s tests -t .` (needs `loguru`, `aiohttp`, `aiosqlite`, `PyYAML`).

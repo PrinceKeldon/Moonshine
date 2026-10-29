@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 
-def filter_block(pair: dict, filters: dict) -> tuple[str, str] | None:
+def filter_block(pair: dict, filters: dict, *, skip_age: bool = False) -> tuple[str, str] | None:
     """None if the pair passes the basic filters, else (code, reason) for the first one it fails."""
     liq = pair.get("liquidity_usd", 0)
     if liq < filters.get("min_liquidity_usd", 0):
@@ -23,7 +23,7 @@ def filter_block(pair: dict, filters: dict) -> tuple[str, str] | None:
 
     # Age check
     created = pair.get("pair_created_at")
-    if created and filters.get("max_age_minutes"):
+    if not skip_age and created and filters.get("max_age_minutes"):
         try:
             # DexScreener uses ms timestamps
             ts = created / 1000 if created > 1e12 else created
@@ -50,6 +50,45 @@ def pair_age_min(pair: dict) -> float | None:
         return None
     ts = created / 1000 if created > 1e12 else created
     return max(0.0, (datetime.now(timezone.utc).timestamp() - ts) / 60)
+
+
+def older_token_signal(
+    pair: dict, market_change: dict[str, float] | None, cfg: dict
+) -> tuple[str, str] | None:
+    """Return a qualifying liquidity-spike or price-breakout signal for an older pair."""
+    age = pair_age_min(pair)
+    if age is None or age < cfg.get("min_age_days", 7) * 24 * 60:
+        return None
+
+    volume_1h = pair.get("volume_1h") or 0
+    min_volume = cfg.get("min_volume_1h_usd", 25000)
+    if volume_1h < min_volume:
+        return None
+
+    liquidity_change = (market_change or {}).get("liquidity_change_pct")
+    previous_liquidity = (market_change or {}).get("previous_liquidity_usd", 0)
+    min_baseline = cfg.get("min_baseline_liquidity_usd", 5000)
+    spike_pct = cfg.get("liquidity_spike_pct", 30)
+    if (
+        liquidity_change is not None
+        and previous_liquidity >= min_baseline
+        and liquidity_change >= spike_pct
+    ):
+        return (
+            "older_liquidity_spike",
+            f"Liquidity rose {liquidity_change:+.0f}% over the tracking window "
+            f"(${previous_liquidity:,.0f} to ${pair.get('liquidity_usd') or 0:,.0f}).",
+        )
+
+    breakout_pct = cfg.get("breakout_price_change_1h_pct", 20)
+    price_change_1h = pair.get("price_change_1h") or 0
+    if price_change_1h >= breakout_pct:
+        return (
+            "older_breakout",
+            f"1h price breakout +{price_change_1h:.1f}% "
+            f"with ${volume_1h:,.0f} 1h volume.",
+        )
+    return None
 
 
 def score_pair(pair: dict, top10: float | None = None) -> float:

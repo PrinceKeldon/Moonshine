@@ -53,6 +53,16 @@ class DexScreenerClient:
             return data
         return []
 
+    async def get_latest_token_boosts(self) -> list[dict]:
+        """Recently boosted tokens, which can include established tokens."""
+        data = await self._get("/token-boosts/latest/v1")
+        return data if isinstance(data, list) else []
+
+    async def get_top_token_boosts(self) -> list[dict]:
+        """Currently top-boosted tokens, including tokens older than the profile feed."""
+        data = await self._get("/token-boosts/top/v1")
+        return data if isinstance(data, list) else []
+
     async def get_token_pairs(self, token_address: str) -> list[dict]:
         """All pairs for a token mint."""
         data = await self._get(f"/latest/dex/tokens/{token_address}")
