@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { ensureHeliusListener, geyserMintAddresses, status as heliusStatus } from "@/lib/desk/helius-stream";
 import type { PublicPairDTO, PublicTapeResult, Venue } from "@/lib/desk/types";
 
 const PUMP = new Set(["pumpfun", "pumpswap"]);
@@ -48,9 +49,10 @@ function collectAddresses(payload: unknown, seen: Set<string>, addresses: string
 export const fetchPublicTape = createServerFn({ method: "GET" }).handler(async (): Promise<PublicTapeResult> => {
   const empty: PublicTapeResult = { ok: false, pairs: [], scanned: 0, dropped: 0 };
   try {
-    // Two light sources in parallel: paid/promoted boosts + latest token profiles.
-    // Profiles catch more organic activity; boosts catch paid attention. Together
-    // they surface both new listings and older names that are heating up.
+    // Keep the Helius stream warm on every tape pull (no-op without API key).
+    ensureHeliusListener();
+
+    // DexScreener discovery + real-time geyser mints from Helius.
     const [boostsRes, profilesRes] = await Promise.all([
       fetch("https://api.dexscreener.com/token-boosts/latest/v1", {
         signal: AbortSignal.timeout(4500),
@@ -62,11 +64,17 @@ export const fetchPublicTape = createServerFn({ method: "GET" }).handler(async (
       }),
     ]);
 
-    if (!boostsRes.ok && !profilesRes.ok) return empty;
-
     const addresses: string[] = [];
     const seen = new Set<string>();
-    const limit = 32;
+    const limit = 40;
+
+    // Prefer on-chain hits first so brand-new pairs rank into enrichment.
+    for (const mint of geyserMintAddresses(12)) {
+      if (addresses.length >= limit) break;
+      if (seen.has(mint)) continue;
+      seen.add(mint);
+      addresses.push(mint);
+    }
 
     if (boostsRes.ok) {
       collectAddresses(await boostsRes.json(), seen, addresses, limit);
@@ -75,7 +83,10 @@ export const fetchPublicTape = createServerFn({ method: "GET" }).handler(async (
       collectAddresses(await profilesRes.json(), seen, addresses, limit);
     }
 
-    if (addresses.length === 0) return { ok: true, pairs: [], scanned: 0, dropped: 0 };
+    if (addresses.length === 0) {
+      // Still report ok so the desk knows the poll ran (stream may just be quiet).
+      return { ok: true, pairs: [], scanned: 0, dropped: 0 };
+    }
 
     const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${addresses.join(",")}`, {
       signal: AbortSignal.timeout(4500),
@@ -100,13 +111,11 @@ export const fetchPublicTape = createServerFn({ method: "GET" }).handler(async (
       const liq = num(pair.liquidity?.usd);
       const vol = num(pair.volume?.h1);
       const prev = best.get(mint);
-      // Prefer higher 1h volume, then liquidity — surfaces breakouts over quiet pools.
       if (!prev || vol > prev.vol || (vol === prev.vol && liq > prev.liq)) {
         best.set(mint, { pair, venue, liq, vol });
       }
     }
 
-    // Rank by 1h volume so breakouts and hot new names rise to the top.
     const ranked = [...best.entries()].sort((a, b) => b[1].vol - a[1].vol);
 
     const out: PublicPairDTO[] = [];
@@ -132,11 +141,23 @@ export const fetchPublicTape = createServerFn({ method: "GET" }).handler(async (
         buys1h: num(pair.txns?.h1?.buys),
         sells1h: num(pair.txns?.h1?.sells),
       });
-      if (out.length >= 12) break;
+      if (out.length >= 14) break;
+    }
+
+    const stream = heliusStatus();
+    if (stream.enabled && stream.connected) {
+      // Scanned count includes stream buffer so the UI can see activity.
+      return { ok: true, pairs: out, scanned: addresses.length + stream.bufferSize, dropped };
     }
 
     return { ok: true, pairs: out, scanned: addresses.length, dropped };
   } catch {
     return empty;
   }
+});
+
+/** Desk / ops can poll stream health without pulling the full tape. */
+export const fetchHeliusStreamStatus = createServerFn({ method: "GET" }).handler(async () => {
+  ensureHeliusListener();
+  return heliusStatus();
 });
