@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import {
-  appendAgentEvent,
   buildRecap,
   createDesk,
   nextNightTarget,
@@ -162,7 +161,19 @@ export const useDesk = create<DeskState & DeskActions>()(
       reset: () =>
         set((cur) => ({ ...createDesk((Date.now() ^ 0x9e3779b9) >>> 0), watchAddress: cur.watchAddress ?? "", watch: cur.watch ?? null })),
       liveEvent: (agent, kind, symbol, reason, tone, decision) =>
-        set((cur) => appendAgentEvent(cur, agent, kind, symbol, reason, tone, decision)),
+        set((cur) => {
+          const seq = cur.seq + 1;
+          const row: DeskLog = { id: `L${seq}`, t: cur.deskTime, agent, symbol, kind, reason };
+          const logs = [...cur.logs, row];
+          if (logs.length > 180) logs.splice(0, logs.length - 180);
+          const agents = { ...cur.agents, [agent]: { last: reason, tone } };
+          let decisions = cur.decisions;
+          if (decision && symbol) {
+            decisions = [...cur.decisions, { t: cur.deskTime, symbol, mint: decision.mint, outcome: decision.outcome, reason }];
+            if (decisions.length > 3000) decisions = decisions.slice(decisions.length - 3000);
+          }
+          return { ...cur, seq, logs, agents, decisions };
+        }),
       ingestPublic: (payload) =>
         set((cur) => {
           if (!payload.ok) {
