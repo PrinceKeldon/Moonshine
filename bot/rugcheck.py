@@ -8,6 +8,12 @@ import aiohttp
 from loguru import logger
 
 
+# Raw RugCheck score is a sum of risk points. Higher is worse.
+# Good band is under 1,000; 1,000–5,000 is a warning; above that is danger.
+# Live reports often omit riskLevel entirely (seen on WIF score 1, BONK score 101).
+GOOD_SCORE_BELOW = 1000
+
+
 class RugCheckClient:
     def __init__(self, base_url: str = "https://api.rugcheck.xyz"):
         self.base_url = base_url.rstrip("/")
@@ -59,35 +65,49 @@ class RugCheckClient:
 
     @staticmethod
     def is_good(report: dict) -> bool:
+        """True when the report is in RugCheck's Good band.
+
+        Text ``riskLevel`` wins when it is present. Otherwise the raw ``score``
+        is used: it is a sum of risk points, so a low score is safer. A missing
+        or non-numeric score fails closed. ``rugged`` never passes.
+        """
+        if not isinstance(report, dict) or report.get("rugged") is True:
+            return False
         level = report.get("riskLevel")
-        if isinstance(level, str) and level:
-            return level.lower() == "good"
-        # Some responses use numeric score; treat high score as good if present
+        if isinstance(level, str) and level.strip():
+            return level.strip().lower() == "good"
         score = report.get("score")
-        if isinstance(score, (int, float)) and score >= 100:
-            return True
-        return False
+        # bool is an int subclass; True must not count as a score of 1.
+        if isinstance(score, bool) or not isinstance(score, (int, float)):
+            return False
+        return score < GOOD_SCORE_BELOW
+
+    @staticmethod
+    def explicit_bundle(report: dict) -> str | None:
+        """Danger-level bundle or insider flag, if any.
+
+        Warn-level notes (mutable metadata, "top holders", "creator balance")
+        are common on tradable tokens and are not a permanent blacklist.
+        """
+        if not isinstance(report, dict):
+            return None
+        for risk in report.get("risks") or []:
+            if not isinstance(risk, dict):
+                continue
+            name = str(risk.get("name") or "")
+            level = str(risk.get("level") or "").lower()
+            if level not in ("danger", "critical"):
+                continue
+            lower = name.lower()
+            if "bundle" in lower or "insider" in lower:
+                return name or "Bundle or insider risk"
+        return None
 
     @staticmethod
     def has_bundle_or_high_concentration(report: dict) -> bool:
-        """Detect bundle / insider concentration from risks + top holders."""
-        risks = report.get("risks") or []
-        for r in risks:
-            name = (r.get("name") or "").lower()
-            level = (r.get("level") or "").lower()
-            if any(k in name for k in ("bundle", "insider", "concentration", "top holders", "creator")):
-                if level in ("danger", "warn", "warning", "critical"):
-                    return True
+        """True only for an explicit danger-level bundle or insider flag.
 
-        # Top holders percentage heuristic
-        top = report.get("topHolders") or []
-        if top:
-            # Sum first few holders
-            pct = 0.0
-            for h in top[:5]:
-                pct += float(h.get("pct") or h.get("percentage") or 0)
-            if pct > 40:  # >40% in top 5 is suspicious for most memecoins
-                return True
-
-        # LP locked / freeze / mint authority signals are already in risks usually
-        return False
+        Holder concentration is judged separately, after pools and lockers are
+        removed, and it does not blacklist the mint.
+        """
+        return RugCheckClient.explicit_bundle(report) is not None
