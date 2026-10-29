@@ -297,7 +297,6 @@ async function cycle() {
 
       const block = tapeBlock(pair);
       if (block) {
-        // Soft blocks (vol/liq/age-without-breakout) stay off the permanent seen set so a later spike can retry.
         if (!isSoftTapeBlock(block)) useLive.getState().remember(pair.mint);
         liveSay("filter", "kill", pair.symbol, `[live] ${block}`, "kill", { mint: pair.mint, outcome: "kill" });
         liveSay("logger", "note", pair.symbol, `[live] Logged rejection. ${block}`, "work");
@@ -358,15 +357,15 @@ async function cycle() {
 
       const score = liveScore(pair, screen.top10);
       if (score < MIN_LIVE_SCORE) {
-        // Soft: allow revisit if flow/volume improves on a later cycle.
+        const scoreMsg = `Score ${score.toFixed(2)} under ${MIN_LIVE_SCORE.toFixed(2)}.`;
         useLive.getState().pushOrder(
-          order({ side: "buy", symbol: pair.symbol, mint: pair.mint, signature: null, status: "skipped", reason: `Score ${score.toFixed(2)} under 0.60.` }),
+          order({ side: "buy", symbol: pair.symbol, mint: pair.mint, signature: null, status: "skipped", reason: scoreMsg }),
         );
-        liveSay("analyst", "reject", pair.symbol, `[live] Score ${score.toFixed(2)} under 0.60 (soft — may revisit).`, "kill", {
+        liveSay("analyst", "reject", pair.symbol, `[live] ${scoreMsg} (soft — may revisit).`, "kill", {
           mint: pair.mint,
           outcome: "reject",
         });
-        liveSay("logger", "note", pair.symbol, `[live] Logged rejection. Score ${score.toFixed(2)}.`, "work");
+        liveSay("logger", "note", pair.symbol, `[live] Logged rejection. ${scoreMsg}`, "work");
         continue;
       }
 
