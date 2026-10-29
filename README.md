@@ -72,6 +72,9 @@ moonshine-bot/
 │   ├── dexscreener.py       # API client
 │   ├── rugcheck.py          # safety checks
 │   ├── analysis.py          # filters + classification
+│   ├── risk.py              # paper book, stops, sizing
+│   ├── ledger.py            # decisions + counterfactuals
+│   ├── desk.py              # pipeline ↔ risk engine
 │   ├── storage.py           # SQLite + JSONL
 │   ├── telegram_trader.py   # notifications + buy commands
 │   └── config.py
@@ -112,11 +115,19 @@ decides whether a candidate becomes a position.
   gates earn their keep with `Ledger("data/ledger.db").gate_report()`: a gate whose rejected names
   average a positive move is killing winners.
 - **Older-token scan**: in addition to the latest profiles, the bot checks DexScreener's latest and
-  top boosted Solana tokens, plus any mints listed under `older_tokens.mints`. Pairs at least
-  `min_age_days` old must show either the configured 1h breakout or a tracked liquidity spike
-  before proceeding through the normal safety checks. Liquidity history is stored in
-  `data/tokens.db`, so the spike detector needs a full lookback window after first tracking a mint.
-  DexScreener does not expose a complete market-wide historical-token feed; boosts and the optional
-  mint watchlist define this scan's candidate universe. Pair creation time is used as the available
-  age proxy.
+  top boosted Solana tokens, plus any mints listed under `older_tokens.mints`. Anything at least
+  `min_age_minutes` old (the same window as `filters.max_age_minutes`, so there is no dead zone)
+  must show either the configured 1h breakout or a tracked liquidity spike. Those names skip the
+  new-pair age cap and the new-pair market-cap cap (`older_tokens.max_market_cap_usd: 0` means no
+  cap). A breakout that also prints as a pump is still scored and offered to the desk; only rugs
+  are hard-blocked. Liquidity history is stored in `data/tokens.db`, so the spike detector needs a
+  full lookback window after first tracking a mint. DexScreener does not expose a complete
+  market-wide historical-token feed; boosts and the optional mint watchlist define this scan's
+  candidate universe. Pair creation time is used as the available age proxy.
+- **Blacklists**: `auto_add_fake_volume` and `auto_add_bundles` default off, so a heuristic skip
+  does not permanently remove a mint. `auto_add_rugs` still does. Creator wallets in
+  `data/dev_blacklist.json` are skipped after RugCheck names them.
+- **RugCheck**: raw `score` is risk points (lower is safer). With no `riskLevel`, Good is score
+  under 1,000. Holder concentration is measured after dropping AMM/locker accounts and one
+  dominant pool-like holder, and a breach skips the pass instead of blacklisting.
 - **Tests**: `python -m unittest discover -s tests -t .` (needs `loguru`, `aiohttp`, `aiosqlite`, `PyYAML`).

@@ -3,7 +3,7 @@ import time
 import unittest
 from pathlib import Path
 
-from bot.analysis import filter_block, older_token_signal
+from bot.analysis import filter_block, older_min_age_minutes, older_token_signal, scan_filters
 from bot.main import get_older_token_profiles
 from bot.storage import Storage
 
@@ -53,6 +53,26 @@ class OlderSignalTests(unittest.TestCase):
         cfg = {"min_age_days": 7, "min_volume_1h_usd": 25_000}
         young = old_pair(pair_created_at=(time.time() - 60 * 60) * 1000, price_change_1h=50)
         self.assertIsNone(older_token_signal(young, None, cfg))
+
+    def test_mid_age_breakout_is_not_in_a_dead_zone(self):
+        """3 hours to 7 days used to miss both the new-pair cap and the 7-day scan."""
+        cfg = {"min_age_minutes": 180, "min_volume_1h_usd": 25_000, "breakout_price_change_1h_pct": 20}
+        two_days = old_pair(
+            pair_created_at=(time.time() - 2 * 24 * 60 * 60) * 1000,
+            price_change_1h=25,
+        )
+        self.assertEqual(older_min_age_minutes(cfg), 180)
+        self.assertEqual(older_token_signal(two_days, None, cfg)[0], "older_breakout")
+        hour_old = old_pair(pair_created_at=(time.time() - 60 * 60) * 1000, price_change_1h=50)
+        self.assertIsNone(older_token_signal(hour_old, None, cfg))
+
+    def test_qualified_older_names_drop_the_new_pair_mcap_cap(self):
+        filters = {"min_liquidity_usd": 8_000, "max_market_cap_usd": 5_000_000, "max_age_minutes": 180}
+        widened = scan_filters(filters, {"max_market_cap_usd": 0}, skip_age=True)
+        fat = old_pair(market_cap=20_000_000)
+        self.assertEqual(filter_block(fat, filters, skip_age=True)[0], "max_mcap")
+        self.assertIsNone(filter_block(fat, widened, skip_age=True))
+        self.assertEqual(scan_filters(filters, {"max_market_cap_usd": 0}, skip_age=False)["max_market_cap_usd"], 5_000_000)
 
 
 class MarketSnapshotTests(unittest.IsolatedAsyncioTestCase):

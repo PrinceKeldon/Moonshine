@@ -3,9 +3,9 @@ DexScreener Bot — full pipeline
 
 1. Discover candidate tokens (token profiles + recent pairs)
 2. Apply filters + blacklists
-3. Fake-volume heuristic → blacklist if suspicious
-4. RugCheck → only "Good"; blacklist bundles
-5. Classify rug / pump, save everything
+3. Fake-volume heuristic → blacklist only when auto_add_fake_volume is on
+4. RugCheck → Good band; danger-level bundles can be blacklisted; holder concentration only skips
+5. Rugs are blocked. Pumps and older-scan breakouts are scored and offered to the desk
 6. Score the survivors; the Desk (risk engine) decides whether to buy
 7. Every cycle: mark open positions, fire stop / trail exits, resolve counterfactuals
 """
@@ -23,8 +23,12 @@ from bot.analysis import (
     classify_rug_or_pump,
     detect_fake_volume,
     filter_block,
+    holder_concentration_block,
+    older_min_age_minutes,
     older_token_signal,
     pair_age_min,
+    report_creator,
+    scan_filters,
     score_pair,
     top10_pct,
 )
@@ -54,6 +58,13 @@ async def get_older_token_profiles(cfg: dict, ds: DexScreenerClient) -> list[dic
         if isinstance(mint, str) and mint.strip()
     )
     return profiles
+
+
+def _blacklist_coin(cfg: dict, coin_bl: set[str], key: str) -> None:
+    coin_bl.add(key)
+    path = (cfg.get("blacklists") or {}).get("coins_file")
+    if path:
+        save_blacklist(path, coin_bl)
 
 
 async def process_pair(
@@ -100,7 +111,7 @@ async def process_pair(
                 outcome="skip",
             )
             return
-        if age >= older_cfg.get("min_age_days", 7) * 24 * 60:
+        if age >= older_min_age_minutes(older_cfg, filters):
             signal = older_token_signal(pair, market_change, older_cfg)
             if signal is None:
                 desk.block(
@@ -113,20 +124,23 @@ async def process_pair(
             pair = {**pair, "older_scan_signal": signal[0], "older_scan_reason": signal[1]}
             skip_age = True
 
-    blocked = filter_block(pair, filters, skip_age=skip_age)
+    blocked = filter_block(pair, scan_filters(filters, older_cfg, skip_age), skip_age=skip_age)
     if blocked:
         desk.block(pair, *blocked)
         return
 
-    # Fake volume
+    # Fake volume. The heuristic still skips the pass; a permanent ban is optional.
     fv_cfg = cfg.get("fake_volume", {})
     if detect_fake_volume(pair, fv_cfg):
-        logger.warning(f"Fake volume suspected → blacklist {mint}")
-        coin_bl.add(key)
-        save_blacklist(cfg["blacklists"]["coins_file"], coin_bl)
+        bl = cfg.get("blacklists") or {}
+        if bl.get("auto_add_fake_volume"):
+            logger.warning(f"Fake volume suspected → blacklist {mint}")
+            _blacklist_coin(cfg, coin_bl, key)
+            await tg.notify_blacklist(mint, "Suspected fake volume")
+        else:
+            logger.info(f"Fake volume suspected → skip {mint} (not blacklisted)")
         await store.log_event(mint, "fake_volume", pair)
         desk.block(pair, "fake_volume", "Suspected fake volume")
-        await tg.notify_blacklist(mint, "Suspected fake volume")
         return
 
     # RugCheck
@@ -136,19 +150,43 @@ async def process_pair(
         desk.block(pair, "no_rugcheck", "No RugCheck data")
         return
 
-    if cfg.get("rugcheck", {}).get("only_good", True) and not rc.is_good(report):
-        logger.info(f"RugCheck not Good → skip {mint} ({report.get('riskLevel')})")
-        desk.block(pair, "rugcheck_not_good", f"RugCheck level {report.get('riskLevel')}")
+    creator = report_creator(report)
+    if creator and creator.lower() in dev_bl:
+        logger.info(f"Dev blacklist → skip {mint} ({creator})")
+        desk.block(pair, "dev_blacklist", f"Creator {creator} is on the dev blacklist.")
         return
 
-    if cfg.get("rugcheck", {}).get("reject_on_bundle", True) and rc.has_bundle_or_high_concentration(report):
-        logger.warning(f"Bundle / concentration → blacklist {mint}")
-        coin_bl.add(key)
-        save_blacklist(cfg["blacklists"]["coins_file"], coin_bl)
-        await store.log_event(mint, "bundle", {"report": report.get("risks")})
-        desk.block(pair, "bundle", "Bundle or high concentration detected")
-        await tg.notify_blacklist(mint, "Bundle or high concentration detected")
+    if cfg.get("rugcheck", {}).get("only_good", True) and not rc.is_good(report):
+        logger.info(f"RugCheck not Good → skip {mint} ({report.get('riskLevel') or report.get('score')})")
+        desk.block(pair, "rugcheck_not_good", f"RugCheck level {report.get('riskLevel') or report.get('score')}")
         return
+
+    rug_cfg = cfg.get("rugcheck") or {}
+    if rug_cfg.get("reject_on_bundle", True):
+        if hasattr(rc, "explicit_bundle"):
+            bundle = rc.explicit_bundle(report)
+        elif rc.has_bundle_or_high_concentration(report):
+            bundle = "Bundle or insider risk"
+        else:
+            bundle = None
+        if bundle:
+            bl = cfg.get("blacklists") or {}
+            if bl.get("auto_add_bundles"):
+                logger.warning(f"Bundle → blacklist {mint}")
+                _blacklist_coin(cfg, coin_bl, key)
+                await tg.notify_blacklist(mint, bundle)
+            else:
+                logger.warning(f"Bundle → skip {mint} (not blacklisted)")
+            await store.log_event(mint, "bundle", {"report": report.get("risks")})
+            desk.block(pair, "bundle", bundle)
+            return
+        concentration = holder_concentration_block(
+            report, float(rug_cfg.get("max_real_top10_pct", 60))
+        )
+        if concentration:
+            logger.info(f"Holder concentration → skip {mint}")
+            desk.block(pair, "holder_concentration", concentration, outcome="skip")
+            return
 
     # Classification
     analysis_cfg = cfg.get("analysis", {})
@@ -168,20 +206,25 @@ async def process_pair(
         logger.warning(f"RUG: {pair.get('symbol')} {mint}")
         desk.block(pair, "rug_signal", "; ".join(classification["reasons"]))
         await tg.notify_rug(pair, classification["reasons"])
-        if cfg["blacklists"].get("auto_add_rugs"):
-            coin_bl.add(key)
-            save_blacklist(cfg["blacklists"]["coins_file"], coin_bl)
-    elif classification["is_pump"]:
-        logger.info(f"PUMP: {pair.get('symbol')} {mint}")
-        desk.block(pair, "pump_no_chase", "; ".join(classification["reasons"]), outcome="skip")
+        if (cfg.get("blacklists") or {}).get("auto_add_rugs"):
+            _blacklist_coin(cfg, coin_bl, key)
+        return
+
+    # A +80% print used to die here as pump_no_chase, including the older-scan
+    # breakouts this bot is meant to trade. Notify, then let the risk engine decide.
+    if classification["is_pump"]:
+        logger.info(f"PUMP: {pair.get('symbol')} {mint} — still eligible")
         await tg.notify_pump(pair, classification["reasons"])
-    else:
-        # Clean candidate that passed every gate → score it and let the risk engine decide.
-        score = score_pair(pair, top10_pct(report))
-        logger.success(
-            f"CLEAN candidate: {pair.get('symbol')} | liq ${pair.get('liquidity_usd'):,.0f} | score {score:.2f}"
-        )
-        await desk.consider(pair, score, ds)
+
+    score = score_pair(pair, top10_pct(report))
+    kind = "PUMP candidate" if classification["is_pump"] else "CLEAN candidate"
+    signal = pair.get("older_scan_signal")
+    if signal:
+        kind = f"{kind} [{signal}]"
+    logger.success(
+        f"{kind}: {pair.get('symbol')} | liq ${pair.get('liquidity_usd'):,.0f} | score {score:.2f}"
+    )
+    await desk.consider(pair, score, ds)
 
 
 async def discovery_cycle(

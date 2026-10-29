@@ -10,8 +10,9 @@ dexscreener:
 
 rugcheck:
   base_url: "https://api.rugcheck.xyz"
-  only_good: true                    # only proceed if riskLevel == "Good"
-  reject_on_bundle: true             # blacklist if bundle / high concentration detected
+  only_good: true                    # Good band: riskLevel good, or raw score < 1000 when level is absent
+  reject_on_bundle: true             # skip danger-level bundle/insider flags
+  max_real_top10_pct: 60             # skip (do not blacklist) when real holders, pools excluded, exceed this
 
 # Pocket Universe style fake-volume heuristic (no public API; we approximate)
 fake_volume:
@@ -37,7 +38,8 @@ older_tokens:
   scan_top_boosts: true
   mints: []                         # add established Solana mints for continuous monitoring
   max_pairs_per_cycle: 20
-  min_age_days: 7                   # pair age is the available proxy for token age
+  min_age_minutes: 180              # starts where filters.max_age_minutes ends; no 3h–7d gap
+  max_market_cap_usd: 0             # 0 = no cap once a spike or breakout qualifies; new pairs stay at $5M
   liquidity_lookback_minutes: 60    # first liquidity-spike signal needs a full lookback to warm up
   liquidity_spike_pct: 30           # require this rise versus the stored lookback observation
   min_baseline_liquidity_usd: 5000  # ignore tiny baselines that can create misleading percentages
@@ -48,8 +50,8 @@ older_tokens:
 blacklists:
   coins_file: "data/coin_blacklist.json"
   devs_file: "data/dev_blacklist.json"
-  auto_add_fake_volume: true
-  auto_add_bundles: true
+  auto_add_fake_volume: false       # skip the pass, but do not permanently ban a wash heuristic
+  auto_add_bundles: false           # danger bundle/insider still skips; ban only when this is true
   auto_add_rugs: true
 
 # --- Analysis thresholds ---

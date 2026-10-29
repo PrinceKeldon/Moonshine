@@ -44,6 +44,30 @@ def _clamp01(n: float) -> float:
     return 0.0 if n < 0 else 1.0 if n > 1 else n
 
 
+def older_min_age_minutes(cfg: dict, filters: dict | None = None) -> float:
+    """Age, in minutes, where the spike/breakout path starts.
+
+    ``min_age_minutes`` wins. Otherwise ``min_age_days``. If neither is set,
+    start at the new-pair max age so a token cannot be too old for the latest
+    feed and too young for the older scan.
+    """
+    if cfg.get("min_age_minutes") is not None:
+        return float(cfg["min_age_minutes"])
+    if cfg.get("min_age_days") is not None:
+        return float(cfg["min_age_days"]) * 24 * 60
+    if filters and filters.get("max_age_minutes"):
+        return float(filters["max_age_minutes"])
+    return 180.0
+
+
+def scan_filters(filters: dict, older_cfg: dict, skip_age: bool) -> dict:
+    """Filters for this candidate. Older-scan names that already qualified do not
+    inherit the new-pair market-cap ceiling (0 means no cap)."""
+    if not skip_age:
+        return filters
+    return {**filters, "max_market_cap_usd": older_cfg.get("max_market_cap_usd", 0)}
+
+
 def pair_age_min(pair: dict) -> float | None:
     created = pair.get("pair_created_at")
     if not created:
@@ -57,7 +81,7 @@ def older_token_signal(
 ) -> tuple[str, str] | None:
     """Return a qualifying liquidity-spike or price-breakout signal for an older pair."""
     age = pair_age_min(pair)
-    if age is None or age < cfg.get("min_age_days", 7) * 24 * 60:
+    if age is None or age < older_min_age_minutes(cfg):
         return None
 
     volume_1h = pair.get("volume_1h") or 0
@@ -113,33 +137,71 @@ def score_pair(pair: dict, top10: float | None = None) -> float:
     return round(_clamp01(raw), 2)
 
 
-def top10_pct(report: dict) -> float | None:
-    """Share held by the top 10 real holders, from a RugCheck report. Pools and
-    lockers are excluded and one dominant holder (>35%, almost always the pool or
-    bonding curve) is dropped, mirroring the TypeScript screen. None if unknown."""
+def real_holder_pcts(report: dict) -> list[float]:
+    """Descending holder percentages with AMM/LOCKER accounts removed.
+
+    One dominant holder above 35% is dropped. On memecoins that wallet is almost
+    always the pool or bonding curve, and counting it as a person blacklists
+    tokens RugCheck would otherwise leave tradable.
+    """
     holders = report.get("topHolders") or []
     known = report.get("knownAccounts") or {}
+    if not isinstance(known, dict):
+        known = {}
     pcts: list[float] = []
-    for h in holders:
-        if not isinstance(h, dict) or "pct" not in h:
+    for holder in holders:
+        if not isinstance(holder, dict) or "pct" not in holder:
             continue
         acct = None
-        for addr in (h.get("owner"), h.get("address")):
+        for addr in (holder.get("owner"), holder.get("address")):
             if isinstance(addr, str) and isinstance(known.get(addr), dict):
                 acct = known[addr]
                 break
         if acct and str(acct.get("type", "")).upper() in ("AMM", "LOCKER"):
             continue
         try:
-            pcts.append(float(h["pct"]))
+            pcts.append(float(holder["pct"]))
         except (TypeError, ValueError):
             continue
     if not pcts:
-        return None
+        return []
     pcts.sort(reverse=True)
     if pcts[0] > 35:
         pcts = pcts[1:]
+    return pcts
+
+
+def top10_pct(report: dict) -> float | None:
+    """Share held by the top 10 real holders, from a RugCheck report. Pools and
+    lockers are excluded and one dominant holder (>35%, almost always the pool or
+    bonding curve) is dropped, mirroring the TypeScript screen. None if unknown."""
+    pcts = real_holder_pcts(report)
     return sum(pcts[:10]) if pcts else None
+
+
+def holder_concentration_block(report: dict, limit: float = 60.0) -> str | None:
+    """Skip (do not blacklist) when real holders, after pools are removed, are extreme."""
+    pcts = real_holder_pcts(report)
+    if not pcts:
+        return None
+    top10 = sum(pcts[:10])
+    if top10 > limit:
+        return (
+            f"Top holders control {top10:.0f}% after excluding pools and lockers "
+            f"(limit {limit:.0f}%)."
+        )
+    return None
+
+
+def report_creator(report: dict | None) -> str | None:
+    """Creator wallet from a RugCheck report, if it named one."""
+    if not isinstance(report, dict):
+        return None
+    token = report.get("token") if isinstance(report.get("token"), dict) else {}
+    for value in (report.get("creator"), token.get("creator")):
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
 
 
 def detect_fake_volume(pair: dict, cfg: dict) -> bool:
