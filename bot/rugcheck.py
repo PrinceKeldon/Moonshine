@@ -59,9 +59,9 @@ class RugCheckClient:
 
     @staticmethod
     def is_good(report: dict) -> bool:
-        level = (report.get("riskLevel") or report.get("score") or "").lower()
-        if isinstance(level, str):
-            return level == "good"
+        level = report.get("riskLevel")
+        if isinstance(level, str) and level:
+            return level.lower() == "good"
         # Some responses use numeric score; treat high score as good if present
         score = report.get("score")
         if isinstance(score, (int, float)) and score >= 100:
