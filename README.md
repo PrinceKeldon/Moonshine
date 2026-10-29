@@ -92,3 +92,23 @@ moonshine-bot/
 ---
 
 Built as a complete, production-oriented single codebase matching the original requirements.
+
+## Risk engine, ledger and desk
+
+Every buy now goes through `bot/risk.py` and every decision is written to `bot/ledger.py`
+(`data/ledger.db`). The pipeline above still decides *candidates*; the desk (`bot/desk.py`)
+decides whether a candidate becomes a position.
+
+- **Rules** (`risk:` in `config.yaml`): hard stop, trail that arms only after a gain, no adding
+  to a position, revenge lock after a losing exit, max positions, per-name cap, daily loss halt.
+- **Paper book**: positions persist in `data/book.json`. Paper fills include slippage plus pool
+  impact (`2 x ticket / liquidity`), so shallow pools cost what they would really cost. A position
+  whose price disappears is written off at zero after `stale_exit_s`.
+- **Exits**: marked every cycle before discovery. With `sell_command_template` empty the bot
+  sends a "SELL NOW" message and you sell by hand; set a template only after testing it.
+- **Open loop**: in live mode the buy message is sent to the trading bot but no fill comes back.
+  Treat the book as a model of your bankroll, not proof of what executed.
+- **Counterfactuals**: each rejected or skipped token is re-priced after 1h and 24h. Query which
+  gates earn their keep with `Ledger("data/ledger.db").gate_report()`: a gate whose rejected names
+  average a positive move is killing winners.
+- **Tests**: `python -m unittest discover -s tests -t .` (needs `loguru`, `aiohttp`, `aiosqlite`, `PyYAML`).

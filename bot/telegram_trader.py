@@ -1,6 +1,7 @@
 """Telegram notifications + Bonkbot trading commands."""
 from __future__ import annotations
 
+import html
 from typing import Any
 
 from loguru import logger
@@ -55,6 +56,21 @@ class TelegramTrader:
         await self.send(cmd)
         if self.cfg.get("notify_on_buy"):
             await self.notify("BUY SENT", f"Bought ~{amount} SOL of <code>{mint}</code>")
+
+    async def sell(self, mint: str, label: str, reason: str) -> None:
+        """Exit signal. With no sell_command_template (the default) this only notifies:
+        the sell syntax of the trading bot is not verified, so you sell by hand."""
+        template = self.cfg.get("sell_command_template") or ""
+        name = html.escape(label or mint[:6])
+        if self.dry_run or not template:
+            tag = "DRY-RUN SELL" if self.dry_run else "SELL NOW (manual)"
+            logger.info(f"[{tag}] {label} {mint}: {reason}")
+            if self.cfg.get("notify_on_sell"):
+                await self.notify(tag, f"<b>{name}</b> <code>{mint}</code>\n{html.escape(reason)}")
+            return
+        await self.send(template.format(mint=mint))
+        if self.cfg.get("notify_on_sell"):
+            await self.notify("SELL SENT", f"<b>{name}</b> <code>{mint}</code>\n{html.escape(reason)}")
 
     async def notify_rug(self, pair: dict, reasons: list[str]) -> None:
         if not self.cfg.get("notify_on_rug"):

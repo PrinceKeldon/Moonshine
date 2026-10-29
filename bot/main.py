@@ -6,7 +6,8 @@ DexScreener Bot — full pipeline
 3. Fake-volume heuristic → blacklist if suspicious
 4. RugCheck → only "Good"; blacklist bundles
 5. Classify rug / pump, save everything
-6. Optionally trade via Bonkbot (Telegram) + notify
+6. Score the survivors; the Desk (risk engine) decides whether to buy
+7. Every cycle: mark open positions, fire stop / trail exits, resolve counterfactuals
 """
 from __future__ import annotations
 
@@ -17,8 +18,9 @@ from pathlib import Path
 
 from loguru import logger
 
-from bot.analysis import apply_filters, classify_rug_or_pump, detect_fake_volume
+from bot.analysis import classify_rug_or_pump, detect_fake_volume, filter_block, score_pair, top10_pct
 from bot.config import load_blacklist, load_config, save_blacklist
+from bot.desk import Desk
 from bot.dexscreener import DexScreenerClient
 from bot.rugcheck import RugCheckClient
 from bot.storage import Storage
@@ -36,26 +38,33 @@ async def process_pair(
     rc: RugCheckClient,
     store: Storage,
     tg: TelegramTrader,
+    desk: Desk,
 ) -> None:
-    mint = (pair.get("mint") or "").lower()
+    # Solana mints are base58 and case-sensitive: API calls and buy commands must use the
+    # original string. Only the blacklist key is lowercased (see config.load_blacklist).
+    mint = pair.get("mint") or ""
     if not mint:
         return
+    key = mint.lower()
 
-    if mint in coin_bl:
+    if key in coin_bl:
         logger.debug(f"Skip blacklisted coin {mint}")
         return
 
     filters = cfg.get("filters", {})
-    if not apply_filters(pair, filters):
+    blocked = filter_block(pair, filters)
+    if blocked:
+        desk.block(pair, *blocked)
         return
 
     # Fake volume
     fv_cfg = cfg.get("fake_volume", {})
     if detect_fake_volume(pair, fv_cfg):
         logger.warning(f"Fake volume suspected → blacklist {mint}")
-        coin_bl.add(mint)
+        coin_bl.add(key)
         save_blacklist(cfg["blacklists"]["coins_file"], coin_bl)
         await store.log_event(mint, "fake_volume", pair)
+        desk.block(pair, "fake_volume", "Suspected fake volume")
         await tg.notify_blacklist(mint, "Suspected fake volume")
         return
 
@@ -63,17 +72,20 @@ async def process_pair(
     report = await rc.get_report(mint)
     if not report:
         logger.debug(f"No RugCheck data for {mint}")
+        desk.block(pair, "no_rugcheck", "No RugCheck data")
         return
 
     if cfg.get("rugcheck", {}).get("only_good", True) and not rc.is_good(report):
         logger.info(f"RugCheck not Good → skip {mint} ({report.get('riskLevel')})")
+        desk.block(pair, "rugcheck_not_good", f"RugCheck level {report.get('riskLevel')}")
         return
 
     if cfg.get("rugcheck", {}).get("reject_on_bundle", True) and rc.has_bundle_or_high_concentration(report):
         logger.warning(f"Bundle / concentration → blacklist {mint}")
-        coin_bl.add(mint)
+        coin_bl.add(key)
         save_blacklist(cfg["blacklists"]["coins_file"], coin_bl)
         await store.log_event(mint, "bundle", {"report": report.get("risks")})
+        desk.block(pair, "bundle", "Bundle or high concentration detected")
         await tg.notify_blacklist(mint, "Bundle or high concentration detected")
         return
 
@@ -93,17 +105,22 @@ async def process_pair(
 
     if classification["is_rug"]:
         logger.warning(f"RUG: {pair.get('symbol')} {mint}")
+        desk.block(pair, "rug_signal", "; ".join(classification["reasons"]))
         await tg.notify_rug(pair, classification["reasons"])
         if cfg["blacklists"].get("auto_add_rugs"):
-            coin_bl.add(mint)
+            coin_bl.add(key)
             save_blacklist(cfg["blacklists"]["coins_file"], coin_bl)
     elif classification["is_pump"]:
         logger.info(f"PUMP: {pair.get('symbol')} {mint}")
+        desk.block(pair, "pump_no_chase", "; ".join(classification["reasons"]), outcome="skip")
         await tg.notify_pump(pair, classification["reasons"])
     else:
-        # Clean new / interesting pair that passed all checks → candidate for trade
-        logger.success(f"CLEAN candidate: {pair.get('symbol')} | liq ${pair.get('liquidity_usd'):,.0f}")
-        await tg.buy(mint)
+        # Clean candidate that passed every gate → score it and let the risk engine decide.
+        score = score_pair(pair, top10_pct(report))
+        logger.success(
+            f"CLEAN candidate: {pair.get('symbol')} | liq ${pair.get('liquidity_usd'):,.0f} | score {score:.2f}"
+        )
+        await desk.consider(pair, score, ds)
 
 
 async def discovery_cycle(
@@ -114,8 +131,13 @@ async def discovery_cycle(
     tg: TelegramTrader,
     coin_bl: set[str],
     dev_bl: set[str],
+    desk: Desk,
 ) -> None:
     logger.info("Starting discovery cycle…")
+    # Exits first: stops must not wait behind a slow discovery pass.
+    await desk.mark_open(ds)
+    await desk.resolve_counterfactuals(ds)
+
     profiles = await ds.get_latest_token_profiles()
     logger.info(f"Fetched {len(profiles)} latest token profiles")
 
@@ -130,9 +152,9 @@ async def discovery_cycle(
         if chain and chain != cfg.get("dexscreener", {}).get("chain", "solana"):
             continue
         mint = profile.get("tokenAddress")
-        if not mint or mint.lower() in seen:
+        if not mint or mint in seen:
             continue
-        seen.add(mint.lower())
+        seen.add(mint)
 
         pairs = await ds.get_token_pairs(mint)
         if not pairs:
@@ -143,7 +165,7 @@ async def discovery_cycle(
             continue
         best = max(sol_pairs, key=lambda p: (p.get("liquidity") or {}).get("usd") or 0)
         normalized = ds.normalize_pair(best)
-        await process_pair(normalized, cfg, coin_bl, dev_bl, ds, rc, store, tg)
+        await process_pair(normalized, cfg, coin_bl, dev_bl, ds, rc, store, tg, desk)
         count += 1
 
     logger.info(f"Cycle finished — processed {count} candidates")
@@ -169,6 +191,7 @@ async def main() -> None:
     await store.init()
 
     tg = TelegramTrader(cfg.get("telegram", {}), dry_run=cfg.get("runtime", {}).get("dry_run", True))
+    desk = Desk(cfg, tg)
 
     stop = asyncio.Event()
 
@@ -188,7 +211,7 @@ async def main() -> None:
     try:
         while not stop.is_set():
             try:
-                await discovery_cycle(cfg, ds, rc, store, tg, coin_bl, dev_bl)
+                await discovery_cycle(cfg, ds, rc, store, tg, coin_bl, dev_bl, desk)
             except Exception as e:
                 logger.exception(f"Cycle error: {e}")
             try:
@@ -198,6 +221,7 @@ async def main() -> None:
     finally:
         await ds.close()
         await rc.close()
+        desk.close()
         logger.info("Bot stopped cleanly")
 
 

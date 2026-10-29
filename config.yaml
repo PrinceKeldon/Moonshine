@@ -57,12 +57,40 @@ telegram:
   # Alternative examples:
   # buy_command_template: "/buy {mint} 0.1"
   # buy_command_template: "buy {mint} 0.05 SOL"
-  default_buy_sol: 0.05
+  default_buy_sol: 0.05                         # only shown in dry-run messages when no SOL price is available
+  # Exit signals. Empty = notify only ("SELL NOW"), you sell by hand. The trading bot's sell
+  # syntax is not verified here, so set this only after testing it, e.g. "/sell {mint} 100%".
+  sell_command_template: ""
   notify_on_buy: true
   notify_on_sell: true
   notify_on_rug: true
   notify_on_pump: true
   notify_on_blacklist: true
+
+# --- Risk engine (paper book that gates every buy and runs every exit) ---
+risk:
+  start_cash: 1000              # USD bankroll the book models. Set it to what you really risk.
+  max_positions: 4
+  max_position_pct: 0.08        # share of equity per name at full conviction
+  min_notional: 25              # skip tickets smaller than this
+  fee_rate: 0.003               # per side; tune to your real DEX + trading-bot fees
+  hard_stop: -0.06
+  trail_arm: 0.12               # trail only arms after this gain...
+  trail_give: 0.06              # ...then exits after giving back this much from the peak
+  revenge_lock_s: 43200         # no re-entry on a mint for 12h after a losing exit
+  daily_loss_pct: 0.05          # halt new entries after losing 5% of day-start equity
+  min_score: 0.45               # analyst line (same as the TypeScript live desk)
+  slippage_bps: 100             # base slippage for paper fills, on top of pool impact
+  impact_factor: 1.0            # 1.0 = constant-product pool impact (2*ticket/liquidity)
+  stale_exit_s: 1800            # no price for this long -> write the position off at zero
+
+# --- Ledger (every decision, plus counterfactual re-checks of the names we turned away) ---
+ledger:
+  db_file: "data/ledger.db"
+  book_file: "data/book.json"
+  horizons_s: [3600, 86400]     # re-price rejected names after 1h and 24h
+  block_cooldown_s: 21600       # log the same (token, rule) at most once per 6h
+  dead_after_s: 259200          # a token with no price 3 days past its check counts as -100%
 
 # --- Storage ---
 storage:

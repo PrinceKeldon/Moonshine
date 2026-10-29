@@ -1,22 +1,25 @@
 """Token analysis: filters, fake-volume heuristic, rug/pump detection."""
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
 from typing import Any
 
 
-def apply_filters(pair: dict, filters: dict) -> bool:
-    """Return True if the pair passes basic filters."""
-    if pair.get("liquidity_usd", 0) < filters.get("min_liquidity_usd", 0):
-        return False
-    if pair.get("volume_24h", 0) < filters.get("min_volume_24h_usd", 0):
-        return False
+def filter_block(pair: dict, filters: dict) -> tuple[str, str] | None:
+    """None if the pair passes the basic filters, else (code, reason) for the first one it fails."""
+    liq = pair.get("liquidity_usd", 0)
+    if liq < filters.get("min_liquidity_usd", 0):
+        return ("min_liquidity", f"Liquidity ${liq:,.0f} is under ${filters.get('min_liquidity_usd', 0):,.0f}.")
+    vol = pair.get("volume_24h", 0)
+    if vol < filters.get("min_volume_24h_usd", 0):
+        return ("min_volume", f"24h volume ${vol:,.0f} is under ${filters.get('min_volume_24h_usd', 0):,.0f}.")
     mc = pair.get("market_cap") or pair.get("fdv") or 0
     if mc < filters.get("min_market_cap_usd", 0):
-        return False
+        return ("min_mcap", f"Market cap ${mc:,.0f} is under ${filters.get('min_market_cap_usd', 0):,.0f}.")
     max_mc = filters.get("max_market_cap_usd")
     if max_mc and mc > max_mc:
-        return False
+        return ("max_mcap", f"Market cap ${mc:,.0f} is over ${max_mc:,.0f}.")
 
     # Age check
     created = pair.get("pair_created_at")
@@ -26,10 +29,78 @@ def apply_filters(pair: dict, filters: dict) -> bool:
             ts = created / 1000 if created > 1e12 else created
             age_min = (datetime.now(timezone.utc).timestamp() - ts) / 60
             if age_min > filters["max_age_minutes"]:
-                return False
+                return ("max_age", f"Pair is {age_min:.0f} min old (limit {filters['max_age_minutes']}).")
         except Exception:
             pass
-    return True
+    return None
+
+
+def apply_filters(pair: dict, filters: dict) -> bool:
+    """Return True if the pair passes basic filters."""
+    return filter_block(pair, filters) is None
+
+
+def _clamp01(n: float) -> float:
+    return 0.0 if n < 0 else 1.0 if n > 1 else n
+
+
+def pair_age_min(pair: dict) -> float | None:
+    created = pair.get("pair_created_at")
+    if not created:
+        return None
+    ts = created / 1000 if created > 1e12 else created
+    return max(0.0, (datetime.now(timezone.utc).timestamp() - ts) / 60)
+
+
+def score_pair(pair: dict, top10: float | None = None) -> float:
+    """0-1 score. Same weights and log baselines as the TypeScript live desk
+    (live-score.ts) so both halves of the project rank tokens the same way.
+    Unknown age scores neutral (0.55); the TS side treats it as brand new."""
+    vol = max(pair.get("volume_1h") or 0.0, 1.0)
+    liq = max(pair.get("liquidity_usd") or 0.0, 1.0)
+    vol_score = _clamp01((math.log10(vol) - 4.2) / 1.1)
+    liq_score = _clamp01((math.log10(liq) - 3.6) / 1.1)
+    holder_score = 0.45 if top10 is None else _clamp01((16 - top10) / 12)
+    age = pair_age_min(pair)
+    if age is None:
+        age_score = 0.55
+    else:
+        age_score = 0.2 if age < 6 else 0.5 if age < 15 else 0.9 if age < 180 else 0.7 if age < 1440 else 0.55
+    buys = pair.get("txns_h1_buys") or 0
+    sells = pair.get("txns_h1_sells") or 0
+    flow = (buys - sells) / max(1, buys + sells)
+    flow_score = _clamp01(0.5 + flow * 0.9)
+    raw = 0.2 * vol_score + 0.24 * liq_score + 0.18 * holder_score + 0.18 * age_score + 0.2 * flow_score
+    return round(_clamp01(raw), 2)
+
+
+def top10_pct(report: dict) -> float | None:
+    """Share held by the top 10 real holders, from a RugCheck report. Pools and
+    lockers are excluded and one dominant holder (>35%, almost always the pool or
+    bonding curve) is dropped, mirroring the TypeScript screen. None if unknown."""
+    holders = report.get("topHolders") or []
+    known = report.get("knownAccounts") or {}
+    pcts: list[float] = []
+    for h in holders:
+        if not isinstance(h, dict) or "pct" not in h:
+            continue
+        acct = None
+        for addr in (h.get("owner"), h.get("address")):
+            if isinstance(addr, str) and isinstance(known.get(addr), dict):
+                acct = known[addr]
+                break
+        if acct and str(acct.get("type", "")).upper() in ("AMM", "LOCKER"):
+            continue
+        try:
+            pcts.append(float(h["pct"]))
+        except (TypeError, ValueError):
+            continue
+    if not pcts:
+        return None
+    pcts.sort(reverse=True)
+    if pcts[0] > 35:
+        pcts = pcts[1:]
+    return sum(pcts[:10]) if pcts else None
 
 
 def detect_fake_volume(pair: dict, cfg: dict) -> bool:

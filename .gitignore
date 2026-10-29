@@ -3,3 +3,6 @@ node_modules/
 .github_repo
 .env
 .env.*
+data/*.jsonl
+data/book.json
+data/book.json.tmp
