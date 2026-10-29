@@ -5,6 +5,12 @@ import type { PublicPairDTO, PublicTapeResult, Venue } from "@/lib/desk/types";
 const PUMP = new Set(["pumpfun", "pumpswap"]);
 const RAY = new Set(["raydium", "raydium-clmm", "raydium-cp", "raydium-cpmm"]);
 
+/** DexScreener often 403s bare server fetches without a browser-like UA. */
+const DS_HEADERS: HeadersInit = {
+  accept: "application/json",
+  "user-agent": "Mozilla/5.0 (compatible; MoonshineDesk/1.0; +https://github.com/PrinceKeldon/Moonshine)",
+};
+
 function venueOf(dexId: string): Venue | null {
   const id = dexId.toLowerCase();
   if (PUMP.has(id)) return "pump.fun";
@@ -32,7 +38,6 @@ function num(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Pull Solana token addresses from a DexScreener list payload (boosts or profiles). */
 function collectAddresses(payload: unknown, seen: Set<string>, addresses: string[], limit: number) {
   if (!Array.isArray(payload)) return;
   for (const row of payload) {
@@ -46,29 +51,29 @@ function collectAddresses(payload: unknown, seen: Set<string>, addresses: string
   }
 }
 
-export const fetchPublicTape = createServerFn({ method: "GET" }).handler(async (): Promise<PublicTapeResult> => {
-  const empty: PublicTapeResult = { ok: false, pairs: [], scanned: 0, dropped: 0 };
+async function fetchJson(url: string, ms = 5000): Promise<unknown | null> {
   try {
-    // Keep the Helius stream warm on every tape pull (no-op without API key).
+    const res = await fetch(url, { signal: AbortSignal.timeout(ms), headers: DS_HEADERS });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export const fetchPublicTape = createServerFn({ method: "GET" }).handler(async (): Promise<PublicTapeResult> => {
+  try {
     ensureHeliusListener();
 
-    // DexScreener discovery + real-time geyser mints from Helius.
-    const [boostsRes, profilesRes] = await Promise.all([
-      fetch("https://api.dexscreener.com/token-boosts/latest/v1", {
-        signal: AbortSignal.timeout(4500),
-        headers: { accept: "application/json" },
-      }),
-      fetch("https://api.dexscreener.com/token-profiles/latest/v1", {
-        signal: AbortSignal.timeout(4500),
-        headers: { accept: "application/json" },
-      }),
+    const [boosts, profiles] = await Promise.all([
+      fetchJson("https://api.dexscreener.com/token-boosts/latest/v1"),
+      fetchJson("https://api.dexscreener.com/token-profiles/latest/v1"),
     ]);
 
     const addresses: string[] = [];
     const seen = new Set<string>();
     const limit = 40;
 
-    // Prefer on-chain hits first so brand-new pairs rank into enrichment.
     for (const mint of geyserMintAddresses(12)) {
       if (addresses.length >= limit) break;
       if (seen.has(mint)) continue;
@@ -76,26 +81,23 @@ export const fetchPublicTape = createServerFn({ method: "GET" }).handler(async (
       addresses.push(mint);
     }
 
-    if (boostsRes.ok) {
-      collectAddresses(await boostsRes.json(), seen, addresses, limit);
-    }
-    if (profilesRes.ok && addresses.length < limit) {
-      collectAddresses(await profilesRes.json(), seen, addresses, limit);
-    }
+    collectAddresses(boosts, seen, addresses, limit);
+    collectAddresses(profiles, seen, addresses, limit);
 
     if (addresses.length === 0) {
-      // Still report ok so the desk knows the poll ran (stream may just be quiet).
+      // Discovery endpoints empty/blocked — stay "ok" so UI does not freeze offline forever.
       return { ok: true, pairs: [], scanned: 0, dropped: 0 };
     }
 
-    const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${addresses.join(",")}`, {
-      signal: AbortSignal.timeout(4500),
-      headers: { accept: "application/json" },
-    });
-    if (!dexRes.ok) return empty;
-    const body: unknown = await dexRes.json();
-    const pairs: RawPair[] =
-      body && typeof body === "object" && "pairs" in body && Array.isArray(body.pairs) ? body.pairs : [];
+    // Batch in chunks of 15 (DexScreener tokens path is picky about long URLs / rate).
+    const pairs: RawPair[] = [];
+    for (let i = 0; i < addresses.length; i += 15) {
+      const chunk = addresses.slice(i, i + 15);
+      const body = await fetchJson(`https://api.dexscreener.com/latest/dex/tokens/${chunk.join(",")}`, 6000);
+      if (body && typeof body === "object" && "pairs" in body && Array.isArray((body as { pairs: unknown }).pairs)) {
+        pairs.push(...((body as { pairs: RawPair[] }).pairs));
+      }
+    }
 
     const best = new Map<string, { pair: RawPair; venue: Venue; liq: number; vol: number }>();
     let dropped = 0;
@@ -145,18 +147,14 @@ export const fetchPublicTape = createServerFn({ method: "GET" }).handler(async (
     }
 
     const stream = heliusStatus();
-    if (stream.enabled && stream.connected) {
-      // Scanned count includes stream buffer so the UI can see activity.
-      return { ok: true, pairs: out, scanned: addresses.length + stream.bufferSize, dropped };
-    }
-
-    return { ok: true, pairs: out, scanned: addresses.length, dropped };
+    const scanned = addresses.length + (stream.enabled && stream.connected ? stream.bufferSize : 0);
+    // Always ok:true after a successful run so a thin market is not shown as "offline".
+    return { ok: true, pairs: out, scanned, dropped };
   } catch {
-    return empty;
+    return { ok: false, pairs: [], scanned: 0, dropped: 0 };
   }
 });
 
-/** Desk / ops can poll stream health without pulling the full tape. */
 export const fetchHeliusStreamStatus = createServerFn({ method: "GET" }).handler(async () => {
   ensureHeliusListener();
   return heliusStatus();
