@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { ensureHeliusListener, geyserMintAddresses, status as heliusStatus } from "@/lib/desk/helius-stream";
+import { isSolanaAddress } from "@/lib/desk/wallet";
 import type { PublicPairDTO, PublicTapeResult, Venue } from "@/lib/desk/types";
 
 const PUMP = new Set(["pumpfun", "pumpswap"]);
@@ -154,6 +155,71 @@ export const fetchPublicTape = createServerFn({ method: "GET" }).handler(async (
     return { ok: false, pairs: [], scanned: 0, dropped: 0 };
   }
 });
+
+export type ManualPairResult = {
+  ok: boolean;
+  pair: PublicPairDTO | null;
+  error: string | null;
+};
+
+export const fetchMintPair = createServerFn({ method: "POST" })
+  .validator((input: { mint: string }) => {
+    const mint = input.mint.trim();
+    if (!isSolanaAddress(mint)) throw new Error("Enter a valid Solana token mint.");
+    return { mint };
+  })
+  .handler(async ({ data }): Promise<ManualPairResult> => {
+    let body: unknown;
+    try {
+      const response = await fetch(
+        `https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(data.mint)}`,
+        { headers: DS_HEADERS, signal: AbortSignal.timeout(7000) },
+      );
+      if (!response.ok) return { ok: false, pair: null, error: `DexScreener returned ${response.status}.` };
+      body = await response.json();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Request failed.";
+      return { ok: false, pair: null, error: `DexScreener request failed: ${message.slice(0, 120)}` };
+    }
+    if (!body || typeof body !== "object" || !("pairs" in body) || !Array.isArray(body.pairs)) {
+      return { ok: false, pair: null, error: "DexScreener did not return token pairs." };
+    }
+
+    const matching = (body.pairs as RawPair[]).flatMap((raw) => {
+      if (raw.chainId !== "solana" || raw.baseToken?.address !== data.mint) return [];
+      const venue = venueOf(raw.dexId ?? "");
+      if (!venue) return [];
+      const priceUsd = num(raw.priceUsd);
+      if (priceUsd <= 0) return [];
+      const created = num(raw.pairCreatedAt);
+      const symbol = (raw.baseToken?.symbol ?? "").replace(/\s+/g, " ").trim().slice(0, 16);
+      const name = (raw.baseToken?.name ?? symbol).replace(/\s+/g, " ").trim().slice(0, 48);
+      if (!symbol || EXPLICIT.test(symbol) || EXPLICIT.test(name)) return [];
+      return [{
+        pair: {
+          mint: data.mint,
+          symbol,
+          name: name || symbol,
+          venue,
+          priceUsd,
+          volume1hUsd: num(raw.volume?.h1),
+          liquidityUsd: num(raw.liquidity?.usd),
+          mcapUsd: num(raw.marketCap) || num(raw.fdv),
+          ageMin: created > 0 ? Math.max(0, (Date.now() - created) / 60000) : 0,
+          buys1h: num(raw.txns?.h1?.buys),
+          sells1h: num(raw.txns?.h1?.sells),
+        } satisfies PublicPairDTO,
+        volume: num(raw.volume?.h1),
+        liquidity: num(raw.liquidity?.usd),
+      }];
+    });
+
+    matching.sort((a, b) => b.volume - a.volume || b.liquidity - a.liquidity);
+    const pair = matching[0]?.pair;
+    return pair
+      ? { ok: true, pair, error: null }
+      : { ok: false, pair: null, error: "No supported Solana Pump.fun or Raydium pair was found for this mint." };
+  });
 
 export const fetchHeliusStreamStatus = createServerFn({ method: "GET" }).handler(async () => {
   ensureHeliusListener();

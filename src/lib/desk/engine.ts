@@ -21,11 +21,11 @@ export const MINUTE = 60_000;
 export const NIGHT = 8 * 60 * MINUTE;
 export const MAX_POSITIONS = 4;
 export const MAX_PCT = 0.08;
-export const MIN_SCORE = 0.6;
+export const PAPER_MIN_SCORE = 0.35;
 export const HARD_STOP = -0.06;
 export const TRAIL_ARM = 0.12;
 export const TRAIL_GIVE = 0.06;
-export const MIN_VOL = 50_000;
+export const PAPER_MIN_VOL = 10_000;
 export const MAX_TOP10 = 20;
 export const REVENGE_MS = 30 * NIGHT;
 export const FEE = 0.003;
@@ -33,7 +33,7 @@ export const FEE = 0.003;
 export const AGENT_META: readonly { id: AgentId; name: string; duty: string }[] = [
   { id: "scout", name: "Scout", duty: "Pump.fun and Raydium, as they print" },
   { id: "filter", name: "Filter", duty: "Five gates. One miss ends it" },
-  { id: "analyst", name: "Analyst", duty: "Score 0–1. Under 0.60 is no" },
+  { id: "analyst", name: "Analyst", duty: "Paper ≥0.35 · live ≥0.45" },
   { id: "executor", name: "Executor", duty: "Cleared names only. Max 8%" },
   { id: "risk", name: "Risk", duty: "−6% hard. Trail only after +12%" },
   { id: "logger", name: "Logger", duty: "Every fill and every rejection" },
@@ -229,11 +229,11 @@ function filterPair(pair: Pair): { ok: true; reason: string } | { ok: false; cod
       reason: `Top 10 holders control ${pair.top10Pct.toFixed(1)}% (limit 20%). Rejected.`,
     };
   }
-  if (pair.volume1hUsd < MIN_VOL) {
+  if (pair.volume1hUsd < PAPER_MIN_VOL) {
     return {
       ok: false,
       code: "volume",
-      reason: `1h volume is ${compactUsd(pair.volume1hUsd)} (under $50,000). Rejected.`,
+      reason: `1h volume is ${compactUsd(pair.volume1hUsd)} (under ${compactUsd(PAPER_MIN_VOL)} paper minimum). Rejected.`,
     };
   }
   if (pair.devPriorRugs > 0) {
@@ -251,15 +251,15 @@ function filterPair(pair: Pair): { ok: true; reason: string } | { ok: false; cod
 }
 
 function analyze(pair: Pair): { score: number; reason: string } {
-  const volScore = clamp01((Math.log10(Math.max(pair.volume1hUsd, 1)) - 4.9) / 0.95);
-  const liqScore = clamp01((Math.log10(Math.max(pair.liquidityUsd, 1)) - 4.45) / 0.95);
+  const volScore = clamp01((Math.log10(Math.max(pair.volume1hUsd, 1)) - 4) / 1.1);
+  const liqScore = clamp01((Math.log10(Math.max(pair.liquidityUsd, 1)) - 3.6) / 1.1);
   const holderScore = clamp01((16 - (pair.top10Pct ?? MAX_TOP10)) / 12);
   const ageScore = pair.ageMin < 6 ? 0.2 : pair.ageMin < 15 ? 0.5 : pair.ageMin < 180 ? 0.9 : 0.62;
   const flow = (pair.buys1h - pair.sells1h) / Math.max(1, pair.buys1h + pair.sells1h);
   const flowScore = clamp01(0.5 + flow * 0.9);
   const raw = 0.2 * volScore + 0.24 * liqScore + 0.18 * holderScore + 0.18 * ageScore + 0.2 * flowScore;
   const score = Math.round(clamp01(raw) * 100) / 100;
-  const reason = `Score ${score.toFixed(2)}. Liquidity ${liqScore.toFixed(2)}, volume ${volScore.toFixed(2)}, holders ${holderScore.toFixed(2)}, age ${ageScore.toFixed(2)}, flow ${flowScore.toFixed(2)}. Line is 0.60.`;
+  const reason = `Score ${score.toFixed(2)}. Liquidity ${liqScore.toFixed(2)}, volume ${volScore.toFixed(2)}, holders ${holderScore.toFixed(2)}, age ${ageScore.toFixed(2)}, flow ${flowScore.toFixed(2)}. Paper line is ${PAPER_MIN_SCORE.toFixed(2)}.`;
   return { score, reason };
 }
 
@@ -291,9 +291,9 @@ function runPipeline(s: DeskState, pair: Pair) {
 
   const view = analyze(pair);
   s.stats.scored += 1;
-  if (view.score < MIN_SCORE) {
+  if (view.score < PAPER_MIN_SCORE) {
     s.stats.scoreRejected += 1;
-    const reason = `No trade. ${view.reason} Under 0.60.`;
+    const reason = `No paper trade. ${view.reason} Under ${PAPER_MIN_SCORE.toFixed(2)}.`;
     say(s, "analyst", "reject", pair.symbol, reason, "kill");
     say(s, "logger", "note", pair.symbol, `Logged rejection. ${pair.symbol} scored ${view.score.toFixed(2)}. No trade.`, "work");
     decide(s, pair.symbol, pair.mint, "reject", reason);
@@ -549,12 +549,12 @@ export function auditBook(s: DeskState): string[] {
     if (fill.sizePct > MAX_PCT + 0.0001) {
       problems.push(`${fill.symbol} sized ${(fill.sizePct * 100).toFixed(2)}% of equity.`);
     }
-    if (fill.score < MIN_SCORE) problems.push(`${fill.symbol} entered at ${fill.score.toFixed(2)}.`);
+    if (fill.score < PAPER_MIN_SCORE) problems.push(`${fill.symbol} entered at ${fill.score.toFixed(2)}.`);
     if (!fill.gates.mintRevoked) problems.push(`${fill.symbol} entered with a live mint.`);
     if (!fill.gates.freezeRevoked) problems.push(`${fill.symbol} entered with a live freeze authority.`);
     if (!fill.gates.lpLocked) problems.push(`${fill.symbol} entered with LP unlocked.`);
     if (fill.gates.top10Pct > MAX_TOP10) problems.push(`${fill.symbol} entered with top 10 at ${fill.gates.top10Pct}.`);
-    if (fill.gates.volume1hUsd < MIN_VOL) problems.push(`${fill.symbol} entered under the volume floor.`);
+    if (fill.gates.volume1hUsd < PAPER_MIN_VOL) problems.push(`${fill.symbol} entered under the paper volume floor.`);
     if (fill.gates.devPriorRugs > 0) problems.push(`${fill.symbol} entered on a rug-linked dev.`);
     if (fill.trailArmed && fill.peakPnlPct + 1e-9 < TRAIL_ARM) {
       problems.push(`${fill.symbol} trailed before +12%.`);
@@ -714,7 +714,7 @@ function narrate(r: Recap): string {
     window,
     `Balance moved from ${money(r.startEquity)} to ${money(r.endEquity)} (${pct(base)}), ${direction}.`,
     `Max drawdown ${(r.maxDrawdown * 100).toFixed(1)}%.`,
-    `Scout put ${r.scanned} names through the handoff. Filter killed ${r.killed}. Analyst refused ${r.scoreRejected} under 0.60. Executor filled ${r.buys}.`,
+    `Scout put ${r.scanned} names through the handoff. Filter killed ${r.killed}. Analyst refused ${r.scoreRejected} under ${PAPER_MIN_SCORE.toFixed(2)}. Executor filled ${r.buys}.`,
     `Risk stopped ${r.stops} on the −6% line and trailed ${r.trails} after they had cleared +12%.`,
     revenge,
     adds,

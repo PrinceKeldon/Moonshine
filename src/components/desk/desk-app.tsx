@@ -1,24 +1,54 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, YAxis } from "recharts";
-import { Crosshair, Filter, Moon, Pause, Play, Radar, Scale, ScrollText, Shield, Sunrise } from "lucide-react";
+import {
+  Check,
+  Crosshair,
+  Filter,
+  LoaderCircle,
+  Moon,
+  Pause,
+  Play,
+  Radar,
+  Scale,
+  ScrollText,
+  Search,
+  Shield,
+  Sunrise,
+  X,
+} from "lucide-react";
 import { RecapScreen } from "@/components/desk/recap";
 import { WalletButton } from "@/components/desk/wallet";
 import { LiveButton } from "@/components/desk/live-panel";
 import { runLiveCycle } from "@/lib/desk/autotrade";
-import { useLive } from "@/lib/desk/live-store";
 import { bootLive, reconnectPhantom } from "@/lib/desk/solana-wallet";
-import { AGENT_META, equityOf } from "@/lib/desk/engine";
+import { AGENT_META, equityOf, PAPER_MIN_SCORE, PAPER_MIN_VOL } from "@/lib/desk/engine";
 import { compactUsd, deskClock, money, pct, pxPrice } from "@/lib/desk/format";
-import { fetchPublicTape } from "@/lib/desk/public-tape";
-import { markPrices, screenMint, type ScreenResult } from "@/lib/desk/live-chain";
+import { fetchMintPair, fetchPublicTape } from "@/lib/desk/public-tape";
+import { markPrices, screenMint } from "@/lib/desk/live-chain";
+import type { ScreenResult } from "@/lib/desk/live-chain";
+import {
+  MAX_PCT,
+  MIN_BREAKOUT_LIQ,
+  MIN_BREAKOUT_VOL,
+  MIN_LIVE_LIQ,
+  MIN_LIVE_SCORE,
+  MIN_LIVE_VOL,
+  MIN_TICKET_SOL,
+  LIVE_RESERVE_SOL,
+  liveScore,
+  tapeBlock,
+  ticketSol,
+} from "@/lib/desk/live-score";
+import { activeAddress, useLive } from "@/lib/desk/live-store";
 import { bootDesk, useDesk } from "@/lib/desk/store";
 import type { AgentId, DeskLog, Fill, PublicPairDTO, TapeRow } from "@/lib/desk/types";
 import { cn } from "@/lib/utils";
 
 const RULES = [
   "Public listings only",
-  "1h vol ≥ $50k",
-  "Score ≥ 0.60",
+  "Live new: $15k vol / $4k liq",
+  "Live breakout: $50k / $10k",
+  "Live score ≥ 0.45",
   "RugCheck gates required",
   "Indexed creator history required",
   "Paper fills only",
@@ -377,7 +407,9 @@ function Agents() {
                 <h2 className="text-sm font-medium">{agent.name}</h2>
               </div>
               <p className="mt-1 line-clamp-2 text-xs leading-snug text-fg">{snap.last}</p>
-              <p className="mt-1 line-clamp-2 text-xs text-dim">{agent.id === "scout" ? tapeNote : agent.duty}</p>
+              <p className="mt-1 line-clamp-2 text-xs text-dim">
+                {agent.id === "scout" ? tapeNote : agent.id === "analyst" ? `Paper ≥${PAPER_MIN_SCORE.toFixed(2)} · live ≥0.45` : agent.duty}
+              </p>
             </article>
           );
         })}
@@ -477,6 +509,7 @@ function Tape() {
             : "Waiting for the public feed";
   return (
     <div className="scroll min-h-0 flex-1 overflow-y-auto">
+      <ManualScan />
       <div className="border-b border-line px-3 py-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-xs font-medium uppercase tracking-wide text-fg">Live candidates</h3>
@@ -528,6 +561,215 @@ function Tape() {
       )}
     </div>
   );
+}
+
+type StageState = "pass" | "blocked" | "diagnostic" | "not-run";
+
+type ManualStage = {
+  name: string;
+  state: StageState;
+  reason: string;
+};
+
+type ManualResult = {
+  pair: PublicPairDTO;
+  screen: ScreenResult;
+  score: number;
+  stages: ManualStage[];
+};
+
+function screenIssues(pair: PublicPairDTO, screen: ScreenResult): string[] {
+  const issues: string[] = [];
+  if (!screen.reportAvailable) issues.push(screen.reason);
+  else if (!screen.ok) issues.push(screen.reason);
+  if (!screen.creator) issues.push("Creator address is missing.");
+  if (!screen.creatorHistoryAvailable || screen.devPriorRugs === null) {
+    issues.push("Creator history is not indexed; unknown remains blocked.");
+  } else if (screen.devPriorRugs > 0) {
+    issues.push(`Creator has ${screen.devPriorRugs} prior rug${screen.devPriorRugs === 1 ? "" : "s"}.`);
+  }
+  if (pair.venue === "raydium" && screen.lpLockedPct !== null && screen.lpLockedPct < 80) {
+    issues.push(`Raydium LP lock is ${screen.lpLockedPct.toFixed(0)}%; at least 80% is required.`);
+  }
+  return [...new Set(issues)];
+}
+
+function ManualScan() {
+  const [mint, setMint] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<ManualResult | null>(null);
+  const armed = useLive((state) => state.armed);
+  const signer = useLive((state) => state.signer);
+  const phantom = useLive((state) => state.phantom);
+  const deskPubkey = useLive((state) => state.deskPubkey);
+  const sol = useLive((state) => state.sol);
+  const halted = useLive((state) => state.halted);
+  const positions = useLive((state) => state.positions);
+  const maxPositions = useLive((state) => state.maxPositions);
+  const solPerTrade = useLive((state) => state.solPerTrade);
+  const locks = useLive((state) => state.locks);
+
+  async function scan(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    setResult(null);
+    const address = mint.trim();
+    try {
+      const market = await fetchMintPair({ data: { mint: address } });
+      if (!market.ok || !market.pair) {
+        setError(market.error ?? "No supported market pair was found.");
+        return;
+      }
+
+      const pair = market.pair;
+      const screen = await screenMint({
+        data: { mint: pair.mint, venue: pair.venue, includeCreatorHistory: true },
+      });
+      const filterIssues = [tapeBlock(pair), ...screenIssues(pair, screen)].filter(
+        (issue): issue is string => Boolean(issue),
+      );
+      const filterPassed = filterIssues.length === 0;
+      const score = liveScore(pair, screen.top10);
+      const analystPassed = score >= MIN_LIVE_SCORE;
+      const owner = activeAddress({ signer, phantom, deskPubkey });
+      const ticket = sol === null ? null : ticketSol(sol, solPerTrade);
+      const executorIssues: string[] = [];
+      if (halted) executorIssues.push(halted);
+      if (positions.some((position) => position.mint === pair.mint)) executorIssues.push("This mint is already open.");
+      if ((locks[pair.mint] ?? 0) > Date.now()) executorIssues.push("This mint is in the revenge lock.");
+      if (positions.length >= maxPositions) executorIssues.push(`Live book is full (${maxPositions} positions).`);
+      if (!owner) executorIssues.push("No signer address is configured.");
+      if (!armed) executorIssues.push("Live is disarmed.");
+      if (ticket === null) executorIssues.push("Wallet balance has not been refreshed.");
+      else if (ticket < MIN_TICKET_SOL) executorIssues.push(`Ticket is below ${MIN_TICKET_SOL} SOL after the cap and reserve.`);
+
+      const executorPassed = filterPassed && analystPassed && executorIssues.length === 0;
+      const riskIssues = [
+        ...(halted ? [halted] : []),
+        ...(positions.some((position) => position.mint === pair.mint) ? ["This mint is already open."] : []),
+        ...((locks[pair.mint] ?? 0) > Date.now() ? ["This mint is in the revenge lock."] : []),
+        ...(positions.length >= maxPositions ? [`Position limit reached (${maxPositions}).`] : []),
+        ...(ticket !== null && ticket < MIN_TICKET_SOL ? [`Risk-sized ticket is below ${MIN_TICKET_SOL} SOL.`] : []),
+      ];
+      setResult({
+        pair,
+        screen,
+        score,
+        stages: [
+          { name: "Scout", state: "pass", reason: "Mint found on DexScreener; selected the deepest supported Solana pair." },
+          {
+            name: "Filter",
+            state: filterPassed ? "pass" : "blocked",
+            reason: filterPassed ? "Market and safety gates passed." : filterIssues.join(" "),
+          },
+          {
+            name: "Analyst",
+            state: "diagnostic",
+            reason: `Analysis completed. Diagnostic score ${score.toFixed(2)}; live minimum ${MIN_LIVE_SCORE.toFixed(2)} is ${analystPassed ? "met" : "not met"}. Live Filter results do not stop this read-only analysis.`,
+          },
+          {
+            name: "Executor",
+            state: executorPassed ? "pass" : "blocked",
+            reason: `${!filterPassed ? `Live Filter blocked: ${filterIssues.join(" ")} ` : ""}${!analystPassed ? `Analyst score is below ${MIN_LIVE_SCORE.toFixed(2)}. ` : ""}${executorPassed
+              ? `Live preflight clear for ${ticket?.toFixed(3)} SOL; manual scans still never submit swaps.`
+              : `Live preflight blocked: ${executorIssues.join(" ")}`}`,
+          },
+          {
+            name: "Risk",
+            state: "diagnostic",
+            reason: `Read-only risk preflight; not trade approval. ${!filterPassed ? `Live Filter blocked: ${filterIssues.join(" ")} ` : ""}${!analystPassed ? `Analyst score is below ${MIN_LIVE_SCORE.toFixed(2)}. ` : ""}${riskIssues.length ? riskIssues.join(" ") + " " : "Risk checks are clear. "}Hard stop −6%; trail arms +12%; max ${(MAX_PCT * 100).toFixed(0)}% of balance, with ${LIVE_RESERVE_SOL} SOL reserve; daily loss halt ${useLive.getState().dailyLossSol} SOL.`,
+          },
+        ],
+      });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Manual scan could not complete.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="border-b border-line bg-bg/40 px-3 py-3" aria-labelledby="manual-scan-title">
+      <div className="flex items-center gap-2">
+        <Search className="size-4 text-amber" aria-hidden="true" />
+        <h3 id="manual-scan-title" className="text-xs font-medium uppercase tracking-wide text-fg">Manual mint scan</h3>
+      </div>
+      <p className="mt-1 text-xs leading-snug text-dim">
+        Read-only diagnostics report live gates without stopping analysis. No order is signed or submitted.
+      </p>
+      <form className="mt-2 flex gap-2" onSubmit={scan}>
+        <label className="sr-only" htmlFor="manual-mint">Solana token mint</label>
+        <input
+          id="manual-mint"
+          value={mint}
+          onChange={(event) => setMint(event.target.value)}
+          autoComplete="off"
+          spellCheck={false}
+          maxLength={44}
+          placeholder="Paste Solana contract address"
+          className="min-h-11 min-w-0 flex-1 rounded-md border border-line bg-surface px-2 font-mono text-xs text-fg placeholder:text-dim"
+        />
+        <button
+          type="submit"
+          disabled={busy || !mint.trim()}
+          className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-md bg-up px-3 text-xs font-medium text-ink disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {busy ? <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" /> : null}
+          {busy ? "Scanning" : "Scan"}
+        </button>
+      </form>
+      <p className="mt-2 text-[10px] leading-snug text-dim">
+        Intake: new pairs ≥ {compactUsd(MIN_LIVE_VOL)} 1h volume / {compactUsd(MIN_LIVE_LIQ)} liquidity; breakouts ≥ {compactUsd(MIN_BREAKOUT_VOL)} / {compactUsd(MIN_BREAKOUT_LIQ)}; score ≥ {MIN_LIVE_SCORE.toFixed(2)}.
+      </p>
+      <p className="mt-1 text-[10px] leading-snug text-amber">
+        Paper simulation: no age cutoff, ≥ {compactUsd(PAPER_MIN_VOL)} 1h volume, score ≥ {PAPER_MIN_SCORE.toFixed(2)}. Rug, authority, LP-lock, holder, and creator-history safety checks still apply.
+      </p>
+      {error ? <p className="mt-2 text-xs text-down" role="alert">{error}</p> : null}
+      {result ? (
+        <div className="mt-3 border-t border-line pt-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate font-mono text-sm">{result.pair.symbol} · {result.pair.venue}</p>
+              <p className="truncate font-mono text-[10px] text-dim">{result.pair.mint}</p>
+            </div>
+            <a
+              className="min-h-11 shrink-0 py-2 text-xs text-up underline-offset-2 hover:underline"
+              href={`https://dexscreener.com/solana/${result.pair.mint}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Chart
+            </a>
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            {compactUsd(result.pair.liquidityUsd)} liquidity · {compactUsd(result.pair.volume1hUsd)} 1h volume · age {Math.floor(result.pair.ageMin / 1440)}d
+          </p>
+          <ol className="mt-2 space-y-1.5">
+            {result.stages.map((stage) => (
+              <li key={stage.name} className="flex gap-2 text-xs">
+                <StageIcon state={stage.state} />
+                <div className="min-w-0">
+                  <span className="font-medium">{stage.name}: </span>
+                  <span className={stage.state === "blocked" ? "text-down" : stage.state === "pass" ? "text-up" : stage.state === "diagnostic" ? "text-amber" : "text-dim"}>
+                    {stage.reason}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function StageIcon({ state }: { state: StageState }) {
+  if (state === "pass") return <Check className="mt-0.5 size-3.5 shrink-0 text-up" aria-label="Passed" />;
+  if (state === "blocked") return <X className="mt-0.5 size-3.5 shrink-0 text-down" aria-label="Blocked" />;
+  if (state === "diagnostic") return <Search className="mt-0.5 size-3.5 shrink-0 text-amber" aria-label="Diagnostic only" />;
+  return <span className="mt-1 size-2.5 shrink-0 rounded-full border border-dim" aria-label="Not run" />;
 }
 
 function CandidateRow({ pair }: { pair: PublicPairDTO }) {
@@ -591,7 +833,7 @@ function authorityState(revoked: boolean | null | undefined): string {
 }
 
 function Outcome({ row }: { row: TapeRow }) {
-  const label = row.outcome === "kill" ? "Killed" : row.outcome === "reject" ? "Under 0.60" : row.outcome === "skip" ? "Skipped" : "Filled";
+  const label = row.outcome === "kill" ? "Killed" : row.outcome === "reject" ? "Score rejected" : row.outcome === "skip" ? "Skipped" : "Filled";
   const color = row.outcome === "buy" ? "text-up" : row.outcome === "kill" ? "text-down" : "text-amber";
   return <span className={cn("font-mono text-xs", color)}>{label}</span>;
 }

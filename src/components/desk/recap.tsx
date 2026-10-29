@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Check, Copy, X } from "lucide-react";
 import { deskClock, money, pct } from "@/lib/desk/format";
+import { PAPER_MIN_SCORE, PAPER_MIN_VOL } from "@/lib/desk/engine";
 import type { KillCode, Recap, TradeView } from "@/lib/desk/types";
 import { useDesk } from "@/lib/desk/store";
 import { cn } from "@/lib/utils";
@@ -10,7 +11,7 @@ const KILL_LABEL: Record<KillCode, string> = {
   mint: "Mint authority still live",
   lp: "LP not locked",
   holders: "Top 10 over 20%",
-  volume: "1h volume under $50k",
+  volume: `1h volume under ${PAPER_MIN_VOL / 1000}k`,
   dev: "Dev tied to a prior rug",
   venue: "Outside Pump.fun / Raydium",
 };
@@ -19,9 +20,9 @@ const AUDIT = [
   "Mint revoked before every fill",
   "LP locked before every fill",
   "Top 10 at or under 20%",
-  "1h volume at least $50k",
+  `1h volume at least $${PAPER_MIN_VOL / 1000}k`,
   "Dev wallet clean of prior rugs",
-  "Score at least 0.60",
+  `Paper score at least ${PAPER_MIN_SCORE.toFixed(2)}`,
   "No fill above 8% of balance",
   "Nothing left open through −6%",
   "No trail before +12%",
@@ -191,7 +192,7 @@ function RejectionBars({ recap }: { recap: Recap }) {
     <section className="rounded-md border border-line bg-surface p-4">
       <h3 className="text-sm font-medium">Why names died</h3>
       <p className="mt-1 text-sm text-muted">
-        {recap.killed} killed at the gate · {recap.scoreRejected} scored under 0.60 · {recap.revengeBlocks} revenge locks · {recap.addBlocks} adds refused
+        {recap.killed} killed at the gate · {recap.scoreRejected} scored under {PAPER_MIN_SCORE.toFixed(2)} · {recap.revengeBlocks} revenge locks · {recap.addBlocks} adds refused
       </p>
       {rows.length === 0 ? (
         <p className="mt-3 text-sm text-muted">No gate kills in this window.</p>
