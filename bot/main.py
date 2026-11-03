@@ -41,6 +41,8 @@ from bot.config import load_blacklist, load_config, save_blacklist
 from bot.desk import Desk
 from bot.dexscreener import DexScreenerClient
 from bot.new_pair_scanner import NewPairScanner, ScannerConfig, SeenCache
+from bot.report import paper_report
+from bot.risk import RiskConfig
 from bot.rugcheck import RugCheckClient
 from bot.storage import Storage
 from bot.telegram_trader import TelegramTrader
@@ -180,7 +182,6 @@ async def process_pair(
             if bl.get("auto_add_bundles"):
                 logger.warning(f"Bundle → blacklist {mint}")
                 _blacklist_coin(cfg, coin_bl, key)
-                await tg.notify_blacklist(mint, bundle)
             else:
                 logger.warning(f"Bundle → skip {mint} (not blacklisted)")
             await store.log_event(mint, "bundle", {"report": report.get("risks")})
@@ -354,6 +355,23 @@ async def run_sniper_mode(
             pass
 
 
+def _print_report(cfg: dict, desk: Desk) -> None:
+    """Print paper-trading summary on shutdown."""
+    try:
+        lcfg = cfg.get("ledger") or {}
+        rcfg = RiskConfig.from_dict(cfg.get("risk"))
+        report = paper_report(
+            desk.ledger,
+            Path(lcfg.get("book_file", "data/book.json")),
+            rcfg,
+            since=0.0,  # full history on shutdown
+        )
+        print("\n" + report)
+        logger.info("Paper report printed")
+    except Exception as e:
+        logger.warning(f"Could not print paper report: {e}")
+
+
 async def main() -> None:
     cfg = load_config(ROOT / "config.yaml")
     log_level = cfg.get("runtime", {}).get("log_level", "INFO")
@@ -414,6 +432,7 @@ async def main() -> None:
     finally:
         await ds.close()
         await rc.close()
+        _print_report(cfg, desk)
         desk.close()
         logger.info("Bot stopped cleanly")
 
