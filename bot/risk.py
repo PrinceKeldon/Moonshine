@@ -5,8 +5,10 @@ clock or Telegram. Callers pass in prices and timestamps and get back a new book
 plus ``Decision`` rows for the ledger. Positions are keyed by token mint
 (base58 is case-sensitive: never lowercase a mint).
 
-Rules (same as the TypeScript desk, now in one place for the Python bot):
+Rules:
   * hard stop; trail arms only after a gain, then gives back a fixed amount
+  * optional micro-profit scale-outs (take_profit_1 / take_profit_2)
+  * optional time stop (max_hold_seconds)
   * never add to an open position (no averaging down)
   * revenge lock: no re-entry on a mint for a while after a losing exit
   * max open positions, per-position cap as a share of equity
@@ -40,20 +42,29 @@ class RiskConfig:
     max_position_pct: float = 0.08  # share of equity per name at full conviction
     min_notional: float = 25.0  # below this a ticket is not worth the fees
     fee_rate: float = 0.003  # per side, covers DEX + bot fee estimate; tune to your real costs
-    hard_stop: float = -0.06
-    trail_arm: float = 0.12
-    trail_give: float = 0.06
+    hard_stop: float = -0.05
+    trail_arm: float = 0.08
+    trail_give: float = 0.04
     revenge_lock_s: int = 12 * 3600
     daily_loss_pct: float = 0.05  # of equity at the start of the UTC day
     min_score: float = 0.45  # same line the TS live desk uses today
     high_conviction: float = 0.84  # full cap at/above this score
     mid_conviction: float = 0.74  # 75% of cap at/above this score, else 50%
 
+    # --- Micro-profit / sniper exits ---
+    # Set take_profit_1 to 0 to disable scale-outs.
+    take_profit_1: float = 0.06          # first scale-out trigger (e.g. +6%)
+    take_profit_1_pct: float = 0.50      # fraction of *current* qty to sell at TP1
+    take_profit_2: float = 0.10          # second scale-out trigger
+    take_profit_2_pct: float = 0.50      # fraction of *remaining* qty to sell at TP2
+    max_hold_seconds: int = 480          # time stop (0 = disabled). Default ~8 min.
+
     def __post_init__(self) -> None:
         numeric = (
             "start_cash", "max_position_pct", "min_notional", "fee_rate", "hard_stop",
             "trail_arm", "trail_give", "daily_loss_pct", "min_score",
             "high_conviction", "mid_conviction",
+            "take_profit_1", "take_profit_1_pct", "take_profit_2", "take_profit_2_pct",
         )
         for name in numeric:
             value = getattr(self, name)
@@ -81,6 +92,16 @@ class RiskConfig:
             raise ValueError("risk.min_score must be in [0, 1]")
         if not 0 <= self.mid_conviction <= self.high_conviction <= 1:
             raise ValueError("risk conviction thresholds must satisfy 0 <= mid <= high <= 1")
+        if self.take_profit_1 < 0:
+            raise ValueError("risk.take_profit_1 cannot be negative")
+        if not 0 < self.take_profit_1_pct <= 1:
+            raise ValueError("risk.take_profit_1_pct must be in (0, 1]")
+        if self.take_profit_2 < 0:
+            raise ValueError("risk.take_profit_2 cannot be negative")
+        if not 0 < self.take_profit_2_pct <= 1:
+            raise ValueError("risk.take_profit_2_pct must be in (0, 1]")
+        if not isinstance(self.max_hold_seconds, int) or isinstance(self.max_hold_seconds, bool) or self.max_hold_seconds < 0:
+            raise ValueError("risk.max_hold_seconds must be a non-negative integer")
 
     @classmethod
     def from_dict(cls, d: Mapping[str, Any] | None) -> "RiskConfig":
@@ -94,7 +115,7 @@ class Position:
     entry_price: float
     price: float
     qty: float
-    cost: float  # cash paid including entry fee
+    cost: float  # remaining cost basis (proportional after partials)
     entry_pct: float  # ticket / equity at entry
     opened_at: float
     score: float
@@ -102,6 +123,9 @@ class Position:
     peak_pnl: float = 0.0
     trail_armed: bool = False
     trail_stop: float | None = None
+    original_qty: float = 0.0          # qty at full entry (for reporting)
+    scaled_1: bool = False             # first take-profit already taken
+    scaled_2: bool = False             # second take-profit already taken
 
     @property
     def pnl_pct(self) -> float:
@@ -121,7 +145,7 @@ class ClosedTrade:
     pnl_usd: float
     pnl_pct: float  # net of fees, on cost
     peak_pnl: float  # best mark-to-entry gain seen while open
-    exit_kind: str  # stop | trail | flatten | writeoff
+    exit_kind: str  # stop | trail | scale1 | scale2 | time | flatten | writeoff
     entry_pct: float
     score: float
 
@@ -224,30 +248,121 @@ def enter(cfg: RiskConfig, book: Book, symbol: str, fill_price: float, score: fl
         return book, [Decision(now, symbol, "skip", "min_notional", reason, score, fill_price)]
     eq = equity(book)
     cost = size * (1.0 + cfg.fee_rate)
+    qty = size / fill_price
     pos = Position(
-        symbol=symbol, entry_price=fill_price, price=fill_price, qty=size / fill_price, cost=cost,
+        symbol=symbol, entry_price=fill_price, price=fill_price, qty=qty, cost=cost,
         entry_pct=size / eq, opened_at=now, score=score, label=label or "",
+        original_qty=qty,
     )
     new = replace(book, cash=book.cash - cost, positions={**book.positions, symbol: pos})
+    tp_note = ""
+    if cfg.take_profit_1 > 0:
+        tp_note = f" TP1 {cfg.take_profit_1:+.0%}×{cfg.take_profit_1_pct:.0%}"
+        if cfg.take_profit_2 > 0:
+            tp_note += f", TP2 {cfg.take_profit_2:+.0%}×{cfg.take_profit_2_pct:.0%}"
     reason = (
         f"Bought ${size:.2f} of {name}, {size / eq:.1%} of ${eq:.2f}. Score {score:.2f}. "
-        f"Stop {cfg.hard_stop:.0%}, trail arms at {cfg.trail_arm:+.0%}."
+        f"Stop {cfg.hard_stop:.0%}, trail arms at {cfg.trail_arm:+.0%}.{tp_note}"
     )
     meta = {"size": size, "cost": cost, "entry_pct": size / eq, "label": label or ""}
     return new, [Decision(now, symbol, "buy", "entry", reason, score, fill_price, meta)]
 
 
+def _partial_close(
+    cfg: RiskConfig,
+    book: Book,
+    symbol: str,
+    exit_price: float,
+    now: float,
+    kind: str,
+    reason: str,
+    fraction: float,
+) -> tuple[Book, list[Decision]]:
+    """Sell a fraction of the open position. Remaining cost basis is scaled down."""
+    pos = book.positions[symbol]
+    sell_qty = pos.qty * fraction
+    if sell_qty <= 0 or pos.qty <= 0:
+        return book, []
+
+    # Proportional cost of the slice being sold
+    sell_cost = pos.cost * (sell_qty / pos.qty)
+    proceeds = sell_qty * exit_price * (1.0 - cfg.fee_rate) if exit_price > 0 else 0.0
+    pnl = proceeds - sell_cost
+
+    trade = ClosedTrade(
+        symbol=symbol, opened_at=pos.opened_at, closed_at=now, entry_price=pos.entry_price,
+        exit_price=exit_price, qty=sell_qty, cost=sell_cost, proceeds=proceeds, pnl_usd=pnl,
+        pnl_pct=pnl / sell_cost if sell_cost > 0 else 0.0,
+        peak_pnl=pos.peak_pnl, exit_kind=kind, entry_pct=pos.entry_pct, score=pos.score,
+    )
+
+    remaining_qty = pos.qty - sell_qty
+    remaining_cost = pos.cost - sell_cost
+
+    day_pnl = book.day_pnl + pnl
+    halted = book.halted
+    decisions = [
+        Decision(
+            now, symbol, kind, kind, reason, pos.score, exit_price,
+            {
+                "pnl_usd": pnl,
+                "pnl_pct": trade.pnl_pct,
+                "peak_pnl": pos.peak_pnl,
+                "label": pos.label,
+                "fraction": fraction,
+                "remaining_qty": remaining_qty,
+            },
+        ),
+    ]
+
+    limit = cfg.daily_loss_pct * book.day_start_equity
+    if halted is None and day_pnl <= -limit:
+        halted = f"Halted. Day loss {day_pnl:.2f} USD hit the {limit:.2f} USD limit. Exits still run."
+        decisions.append(Decision(now, symbol, "halt", "daily_loss", halted, None, exit_price))
+
+    if remaining_qty <= EPS:
+        # Fully closed via partials
+        revenge = dict(book.revenge_until)
+        if pnl < 0:  # only lock on net-losing full close; partial winners don't lock
+            revenge[symbol] = now + cfg.revenge_lock_s
+        new = replace(
+            book,
+            cash=book.cash + proceeds,
+            positions={k: v for k, v in book.positions.items() if k != symbol},
+            closed=book.closed + (trade,),
+            revenge_until=revenge,
+            day_pnl=day_pnl,
+            halted=halted,
+        )
+    else:
+        # Update remaining position
+        new_pos = replace(pos, qty=remaining_qty, cost=remaining_cost)
+        if kind == "scale1":
+            new_pos = replace(new_pos, scaled_1=True)
+        elif kind == "scale2":
+            new_pos = replace(new_pos, scaled_2=True)
+        new = replace(
+            book,
+            cash=book.cash + proceeds,
+            positions={**book.positions, symbol: new_pos},
+            closed=book.closed + (trade,),
+            day_pnl=day_pnl,
+            halted=halted,
+        )
+    return new, decisions
+
+
 def close(cfg: RiskConfig, book: Book, symbol: str, exit_price: float, now: float, kind: str,
           reason: str) -> tuple[Book, list[Decision]]:
-    """Close a position at ``exit_price`` (the price you actually receive)."""
+    """Fully close a position at ``exit_price`` (the price you actually receive)."""
     pos = book.positions[symbol]
     proceeds = pos.qty * exit_price * (1.0 - cfg.fee_rate) if exit_price > 0 else 0.0
     pnl = proceeds - pos.cost
     trade = ClosedTrade(
         symbol=symbol, opened_at=pos.opened_at, closed_at=now, entry_price=pos.entry_price,
         exit_price=exit_price, qty=pos.qty, cost=pos.cost, proceeds=proceeds, pnl_usd=pnl,
-        pnl_pct=pnl / pos.cost, peak_pnl=pos.peak_pnl, exit_kind=kind, entry_pct=pos.entry_pct,
-        score=pos.score,
+        pnl_pct=pnl / pos.cost if pos.cost > 0 else 0.0,
+        peak_pnl=pos.peak_pnl, exit_kind=kind, entry_pct=pos.entry_pct, score=pos.score,
     )
     revenge = dict(book.revenge_until)
     if pnl < 0:
@@ -276,7 +391,7 @@ def close(cfg: RiskConfig, book: Book, symbol: str, exit_price: float, now: floa
 
 def mark(cfg: RiskConfig, book: Book, prices: Mapping[str, float], now: float,
          exit_price: ExitFill | None = None) -> tuple[Book, list[Decision]]:
-    """Update marks, arm/ratchet trails, and close anything through its stop.
+    """Update marks, run scale-outs / trail / hard-stop / time-stop.
 
     Stops are judged on the mark. ``exit_price(mint, mark)`` says what you would
     really receive (slippage, impact); without it exits fill at the mark.
@@ -284,15 +399,19 @@ def mark(cfg: RiskConfig, book: Book, prices: Mapping[str, float], now: float,
     """
     book = roll_day(book, now)
     decisions: list[Decision] = []
+
     for symbol in list(book.positions):
         price = prices.get(symbol)
         if price is None or not math.isfinite(price) or price <= 0:
             continue
+
         pos = book.positions[symbol]
         name = pos.label or symbol
         pnl = price / pos.entry_price - 1.0
         peak = max(pos.peak_pnl, pnl)
         armed, stop = pos.trail_armed, pos.trail_stop
+
+        # Arm / ratchet trail
         if not armed and peak >= cfg.trail_arm - EPS:
             armed, stop = True, peak - cfg.trail_give
             decisions.append(Decision(
@@ -302,17 +421,73 @@ def mark(cfg: RiskConfig, book: Book, prices: Mapping[str, float], now: float,
             ))
         elif armed and stop is not None:
             stop = max(stop, peak - cfg.trail_give)
+
         pos = replace(pos, price=price, peak_pnl=peak, trail_armed=armed, trail_stop=stop)
         book = replace(book, positions={**book.positions, symbol: pos})
         fill = exit_price(symbol, price) if exit_price else price
+
+        # 1. Hard stop (full exit)
         if pnl <= cfg.hard_stop + EPS:
-            reason = f"Hard stop. {name} marked {pnl:+.1%}, through {cfg.hard_stop:.0%}. No add on the way down."
+            reason = f"Hard stop. {name} marked {pnl:+.1%}, through {cfg.hard_stop:.0%}."
             book, ds = close(cfg, book, symbol, fill, now, "stop", reason)
             decisions += ds
-        elif armed and stop is not None and pnl <= stop + EPS:
-            reason = f"Trail stop. {name} peaked {peak:+.1%}, stop was {stop:+.1%}, marked {pnl:+.1%}."
+            continue
+
+        # 2. Time stop (full exit)
+        if cfg.max_hold_seconds > 0 and (now - pos.opened_at) >= cfg.max_hold_seconds:
+            hold_min = (now - pos.opened_at) / 60
+            reason = f"Time stop. {name} held {hold_min:.1f} min (limit {cfg.max_hold_seconds / 60:.0f} min). Marked {pnl:+.1%}."
+            book, ds = close(cfg, book, symbol, fill, now, "time", reason)
+            decisions += ds
+            continue
+
+        # 3. First scale-out
+        if (
+            cfg.take_profit_1 > 0
+            and not pos.scaled_1
+            and pnl >= cfg.take_profit_1 - EPS
+        ):
+            reason = (
+                f"Scale-out 1. {name} hit {pnl:+.1%} (target {cfg.take_profit_1:+.0%}). "
+                f"Selling {cfg.take_profit_1_pct:.0%} of position."
+            )
+            book, ds = _partial_close(
+                cfg, book, symbol, fill, now, "scale1", reason, cfg.take_profit_1_pct
+            )
+            decisions += ds
+            # Refresh pos after partial
+            if symbol not in book.positions:
+                continue
+            pos = book.positions[symbol]
+
+        # 4. Second scale-out
+        if (
+            cfg.take_profit_2 > 0
+            and pos.scaled_1
+            and not pos.scaled_2
+            and pnl >= cfg.take_profit_2 - EPS
+        ):
+            reason = (
+                f"Scale-out 2. {name} hit {pnl:+.1%} (target {cfg.take_profit_2:+.0%}). "
+                f"Selling {cfg.take_profit_2_pct:.0%} of remaining."
+            )
+            book, ds = _partial_close(
+                cfg, book, symbol, fill, now, "scale2", reason, cfg.take_profit_2_pct
+            )
+            decisions += ds
+            if symbol not in book.positions:
+                continue
+            pos = book.positions[symbol]
+
+        # 5. Trail stop (full exit of remainder)
+        if pos.trail_armed and pos.trail_stop is not None and pnl <= pos.trail_stop + EPS:
+            reason = (
+                f"Trail stop. {name} peaked {pos.peak_pnl:+.1%}, "
+                f"stop was {pos.trail_stop:+.1%}, marked {pnl:+.1%}."
+            )
             book, ds = close(cfg, book, symbol, fill, now, "trail", reason)
             decisions += ds
+
     return book, decisions
 
 
@@ -382,9 +557,17 @@ def book_to_dict(book: Book) -> dict[str, Any]:
 
 
 def book_from_dict(d: Mapping[str, Any]) -> Book:
+    positions = {}
+    for k, v in d.get("positions", {}).items():
+        # Backwards-compatible: older books may lack the new scale fields
+        v = dict(v)
+        v.setdefault("original_qty", v.get("qty", 0.0))
+        v.setdefault("scaled_1", False)
+        v.setdefault("scaled_2", False)
+        positions[k] = Position(**v)
     return Book(
         cash=float(d["cash"]),
-        positions={k: Position(**v) for k, v in d.get("positions", {}).items()},
+        positions=positions,
         closed=tuple(ClosedTrade(**t) for t in d.get("closed", [])),
         revenge_until={k: float(v) for k, v in d.get("revenge_until", {}).items()},
         day_key=d.get("day_key", ""),
@@ -412,4 +595,6 @@ def load_book(cfg: RiskConfig, path: str | Path) -> Book:
     try:
         return book_from_dict(json.loads(path.read_text(encoding="utf-8")))
     except Exception as e:  # noqa: BLE001
-        raise ValueError(f"Cannot read book file {path}: {e}. Fix or move it; refusing to start from empty.") from e
+        raise ValueError(
+            f"Cannot read book file {path}: {e}. Fix or move it; refusing to start from a blank book."
+        )
