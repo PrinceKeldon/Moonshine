@@ -19,6 +19,7 @@ from typing import Any, Awaitable, Callable
 
 from loguru import logger
 
+from bot.agent import AGENT_EXIT_OUTCOMES, AgentConfig, apply_agent
 from bot.ledger import WATCH_OUTCOMES, Decision, Ledger
 from bot.risk import (
     Book,
@@ -37,7 +38,7 @@ from bot.risk import (
 SOL_MINT = "So11111111111111111111111111111111111111112"
 
 # Outcomes that should trigger a sell / scale notification
-EXIT_OUTCOMES = {"stop", "trail", "writeoff", "scale1", "scale2", "time", "flatten"}
+EXIT_OUTCOMES = {"stop", "trail", "writeoff", "scale1", "scale2", "time", "flatten"} | set(AGENT_EXIT_OUTCOMES)
 
 
 async def best_pair_price(ds: Any, mint: str) -> tuple[float, float] | None:
@@ -74,6 +75,8 @@ class Desk:
         # Grace period after a restart: do not write off positions just because we were down.
         self.last_seen: dict[str, float] = {m: now for m in self.book.positions}
         self.liq: dict[str, float] = {}
+        self.best_liq: dict[str, float] = {}
+        self.ac = AgentConfig.from_dict(cfg.get("agent") or {})
         self._recorded_closed = len(self.book.closed)
         self._reported_problems: set[str] = set()
         self._sol_cache: tuple[float, float] | None = None  # (price, fetched_at)
@@ -181,6 +184,9 @@ class Desk:
             got = await best_pair_price(ds, mint)
             if got:
                 prices[mint], self.liq[mint] = got
+                prev = self.best_liq.get(mint, 0.0)
+                if got[1] > prev:
+                    self.best_liq[mint] = got[1]
                 self.last_seen[mint] = now
         book, decisions = mark(self.rc, self.book, prices, now, exit_price=self._exit_fill)
         for mint, pos in list(book.positions.items()):
@@ -189,6 +195,12 @@ class Desk:
                           f"{(now - self.last_seen[mint]) / 60:.0f} min. Treated as a total loss.")
                 book, ds2 = write_off(self.rc, book, mint, now, reason)
                 decisions += ds2
+        book, agent_ds = apply_agent(
+            self.ac, self.rc, book, prices, self.liq, self.best_liq, now,
+            exit_price=self._exit_fill,
+        )
+        decisions += agent_ds
+        self.best_liq = {m: v for m, v in self.best_liq.items() if m in book.positions}
         self.book = book
         self._save()
         for d in decisions:

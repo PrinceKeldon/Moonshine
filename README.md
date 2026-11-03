@@ -104,6 +104,9 @@ decides whether a candidate becomes a position.
 
 - **Rules** (`risk:` in `config.yaml`): hard stop, trail that arms only after a gain, no adding
   to a position, revenge lock after a losing exit, max positions, per-name cap, daily loss halt.
+- **Position agent** (`agent:` in `config.yaml`): after each risk mark, it can flatten on low or
+  sharply declining liquidity, protect large gains from give-back, force a scale-out after a
+  strong peak, and reduce exposure near the time stop when PnL is still below the soft target.
 - **Paper book**: positions persist in `data/book.json`. Paper fills include slippage plus pool
   impact (`2 x ticket / liquidity`), so shallow pools cost what they would really cost. A position
   whose price disappears is written off at zero after `stale_exit_s`.

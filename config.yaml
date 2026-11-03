@@ -130,6 +130,20 @@ risk:
   impact_factor: 1.0            # 1.0 = constant-product pool impact (2*ticket/liquidity)
   stale_exit_s: 1800            # no price for this long -> write the position off at zero
 
+# --- Rules-based position agent ---
+agent:
+  enabled: true
+  force_scale_peak: 0.40
+  force_scale_pct: 0.40
+  force_scale_only_if_unscaled: true
+  min_peak_for_giveback: 0.20
+  max_giveback_frac: 0.55
+  min_liq_usd: 2500
+  min_liq_frac_of_seen: 0.30
+  time_pressure_frac: 0.80
+  soft_tp: 0.03
+  time_scale_pct: 0.50
+
 # --- Ledger (every decision, plus counterfactual re-checks of the names we turned away) ---
 ledger:
   db_file: "data/ledger.db"
