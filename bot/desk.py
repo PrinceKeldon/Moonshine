@@ -36,6 +36,9 @@ from bot.risk import (
 
 SOL_MINT = "So11111111111111111111111111111111111111112"
 
+# Outcomes that should trigger a sell / scale notification
+EXIT_OUTCOMES = {"stop", "trail", "writeoff", "scale1", "scale2", "time", "flatten"}
+
 
 async def best_pair_price(ds: Any, mint: str) -> tuple[float, float] | None:
     """(price_usd, liquidity_usd) of the deepest Solana pool for a mint, or None."""
@@ -169,7 +172,7 @@ class Desk:
     # ---- every cycle ------------------------------------------------------
 
     async def mark_open(self, ds: Any) -> None:
-        """Re-mark open positions, run stops and trails, write off vanished names."""
+        """Re-mark open positions, run stops / scale-outs / trails / time-stops."""
         if not self.book.positions:
             return
         now = self.clock()
@@ -193,7 +196,7 @@ class Desk:
         self._flush_closed()
         for d in decisions:
             label = d.meta.get("label") or d.symbol[:6]
-            if d.outcome in ("stop", "trail", "writeoff"):
+            if d.outcome in EXIT_OUTCOMES:
                 await self.tg.sell(d.symbol, label, d.reason)
             elif d.outcome == "halt":
                 await self.tg.notify("TRADING HALTED", html.escape(d.reason))
