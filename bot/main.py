@@ -11,7 +11,7 @@ DexScreener Bot — full pipeline
 
 Modes
 -----
-- normal  : original 60s discovery cycle (profiles + older-token boosts)
+- normal  : discovery cycle (profiles + older-token boosts)
 - sniper  : aggressive DexScreener polling focused on brand-new pairs only
 """
 from __future__ import annotations
@@ -87,8 +87,6 @@ async def process_pair(
     desk: Desk,
     older_scan: bool = False,
 ) -> None:
-    # Solana mints are base58 and case-sensitive: API calls and buy commands must use the
-    # original string. Only the blacklist key is lowercased (see config.load_blacklist).
     mint = pair.get("mint") or ""
     if not mint:
         return
@@ -137,7 +135,6 @@ async def process_pair(
         desk.block(pair, *blocked)
         return
 
-    # Fake volume. The heuristic still skips the pass; a permanent ban is optional.
     fv_cfg = cfg.get("fake_volume", {})
     if detect_fake_volume(pair, fv_cfg):
         bl = cfg.get("blacklists") or {}
@@ -151,7 +148,6 @@ async def process_pair(
         desk.block(pair, "fake_volume", "Suspected fake volume")
         return
 
-    # RugCheck
     report = await rc.get_report(mint)
     if not report:
         logger.debug(f"No RugCheck data for {mint}")
@@ -195,7 +191,6 @@ async def process_pair(
             desk.block(pair, "holder_concentration", concentration, outcome="skip")
             return
 
-    # Classification
     analysis_cfg = cfg.get("analysis", {})
     classification = classify_rug_or_pump(pair, analysis_cfg)
     record = {
@@ -217,8 +212,6 @@ async def process_pair(
             _blacklist_coin(cfg, coin_bl, key)
         return
 
-    # A +80% print used to die here as pump_no_chase, including the older-scan
-    # breakouts this bot is meant to trade. Notify, then let the risk engine decide.
     if classification["is_pump"]:
         logger.info(f"PUMP: {pair.get('symbol')} {mint} — still eligible")
         await tg.notify_pump(pair, classification["reasons"])
@@ -316,7 +309,6 @@ def _build_scanner(cfg: dict, ds: DexScreenerClient) -> NewPairScanner:
         chain=cfg.get("dexscreener", {}).get("chain", "solana"),
         prefer_dexes=tuple(sniper_cfg.get("prefer_dexes") or ("raydium", "pumpswap", "pumpfun", "meteora")),
     )
-    # Honour the tighter rate-limit delay while in sniper mode
     ds.delay = scanner_cfg.rate_limit_delay
     return NewPairScanner(
         ds=ds,
@@ -342,8 +334,8 @@ async def run_sniper_mode(
     async def on_pair(pair: dict) -> None:
         await process_pair(pair, cfg, coin_bl, dev_bl, ds, rc, store, tg, desk, older_scan=False)
 
-    # Background task that keeps the risk engine alive (stops / trails / counterfactuals)
-    pos_task = asyncio.create_task(position_loop(desk, ds, stop, cfg["runtime"]["mark_interval_seconds"]))
+    mark_iv = float((cfg.get("runtime") or {}).get("mark_interval_seconds", 10))
+    pos_task = asyncio.create_task(position_loop(desk, ds, stop, mark_iv))
     try:
         await scanner.run(on_pair=on_pair, stop_event=stop)
     finally:
@@ -363,7 +355,7 @@ def _print_report(cfg: dict, desk: Desk) -> None:
             desk.ledger,
             Path(lcfg.get("book_file", "data/book.json")),
             rcfg,
-            since=0.0,  # full history on shutdown
+            since=0.0,
         )
         print("\n" + report)
         logger.info("Paper report printed")
@@ -417,11 +409,10 @@ async def main() -> None:
         if mode == "sniper":
             await run_sniper_mode(cfg, ds, rc, store, tg, coin_bl, dev_bl, desk, stop)
         else:
-            interval = cfg["dexscreener"].get("poll_interval_seconds", 60)
-            logger.info(f"Normal mode — poll every {interval}s")
-            pos_task = asyncio.create_task(
-                position_loop(desk, ds, stop, cfg["runtime"]["mark_interval_seconds"])
-            )
+            interval = cfg["dexscreener"].get("poll_interval_seconds", 20)
+            mark_iv = float((cfg.get("runtime") or {}).get("mark_interval_seconds", 10))
+            logger.info(f"Normal mode — discovery every {interval}s, marks every {mark_iv:.0f}s")
+            pos_task = asyncio.create_task(position_loop(desk, ds, stop, mark_iv))
             try:
                 while not stop.is_set():
                     try:
