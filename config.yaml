@@ -112,6 +112,11 @@ risk:
   hard_stop: -0.05              # tighter stop for sniping
   trail_arm: 0.08               # trail arms earlier (+8%)
   trail_give: 0.04              # give back 4% from peak
+  trail_tiers:
+    - [0.25, 0.03]
+    - [0.50, 0.025]
+    - [1.00, 0.015]
+    - [2.00, 0.01]
   take_profit_1: 0.06           # first scale-out at +6%
   take_profit_1_pct: 0.50       # sell 50% of position
   take_profit_2: 0.10           # second scale-out at +10%

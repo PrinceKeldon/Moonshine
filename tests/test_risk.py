@@ -73,6 +73,8 @@ class EntryRules(unittest.TestCase):
             {"max_position_pct": 1.01},
             {"hard_stop": 0.01},
             {"mid_conviction": 0.9, "high_conviction": 0.8},
+            {"trail_tiers": ((0.50, 0.03), (0.25, 0.02))},
+            {"trail_tiers": ((0.25, 0.25),)},
         ):
             with self.subTest(options=options), self.assertRaises(ValueError):
                 replace(self.cfg, **options)
@@ -80,7 +82,15 @@ class EntryRules(unittest.TestCase):
 
 class ExitRules(unittest.TestCase):
     def setUp(self):
-        self.cfg = CFG
+        self.cfg = replace(
+            CFG,
+            trail_arm=0.12,
+            trail_give=0.06,
+            trail_tiers=(),
+            take_profit_1=0,
+            take_profit_2=0,
+            max_hold_seconds=0,
+        )
         self.book, _ = enter(self.cfg, new_book(self.cfg), "SOL/USD", 100.0, 0.9, T0)
 
     def test_hard_stop_and_revenge_lock(self):
@@ -120,6 +130,46 @@ class ExitRules(unittest.TestCase):
         self.assertGreater(book.closed[0].pnl_usd, 0)
         self.assertEqual(book.revenge_until, {})  # winners do not lock
         self.assertEqual(audit(self.cfg, book), [])
+
+    def test_dynamic_trail_tiers_tighten_as_peak_grows(self):
+        cfg = replace(
+            CFG,
+            trail_tiers=((0.25, 0.03), (0.50, 0.025), (1.0, 0.015), (2.0, 0.01)),
+            take_profit_1=0,
+            take_profit_2=0,
+            max_hold_seconds=0,
+        )
+        book, _ = enter(cfg, new_book(cfg), "SOL/USD", 100.0, 0.9, T0)
+
+        book, ds = mark(cfg, book, {"SOL/USD": 113.0}, T0 + 60)
+        self.assertEqual(outcomes(ds), [("arm", "trail_arm")])
+        self.assertAlmostEqual(book.positions["SOL/USD"].trail_stop, 0.09)
+
+        book, ds = mark(cfg, book, {"SOL/USD": 130.0}, T0 + 120)
+        self.assertEqual(outcomes(ds), [("arm", "trail_tighten")])
+        self.assertAlmostEqual(book.positions["SOL/USD"].trail_stop, 0.27)
+
+        book, ds = mark(cfg, book, {"SOL/USD": 150.0}, T0 + 180)
+        self.assertEqual(outcomes(ds), [("arm", "trail_tighten")])
+        self.assertAlmostEqual(book.positions["SOL/USD"].trail_stop, 0.475)
+
+        book, ds = mark(cfg, book, {"SOL/USD": 200.0}, T0 + 240)
+        self.assertEqual(outcomes(ds), [("arm", "trail_tighten")])
+        self.assertAlmostEqual(book.positions["SOL/USD"].trail_stop, 0.985)
+
+        book, ds = mark(cfg, book, {"SOL/USD": 300.0}, T0 + 300)
+        self.assertEqual(outcomes(ds), [("arm", "trail_tighten")])
+        self.assertAlmostEqual(book.positions["SOL/USD"].trail_stop, 1.99)
+
+    def test_empty_trail_tiers_use_fixed_give_back(self):
+        cfg = replace(CFG, trail_tiers=(), take_profit_1=0, take_profit_2=0)
+        book, _ = enter(cfg, new_book(cfg), "SOL/USD", 100.0, 0.9, T0)
+        book, _ = mark(cfg, book, {"SOL/USD": 113.0}, T0 + 60)
+        self.assertAlmostEqual(book.positions["SOL/USD"].trail_stop, 0.09)
+
+    def test_from_dict_converts_trail_tiers(self):
+        cfg = RiskConfig.from_dict({"trail_tiers": [[0.25, 0.03], [0.5, 0.025]]})
+        self.assertEqual(cfg.trail_tiers, ((0.25, 0.03), (0.5, 0.025)))
 
     def test_missing_price_leaves_position_alone(self):
         book, ds = mark(self.cfg, self.book, {}, T0 + 60)
