@@ -163,3 +163,4 @@ runtime:
   dry_run: true                      # true = never send real buy commands
   max_pairs_per_cycle: 30
   log_level: "INFO"
+  mark_interval_seconds: 10          # how often to mark open positions (stops/trails/counterfactuals)

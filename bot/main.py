@@ -247,9 +247,6 @@ async def discovery_cycle(
     desk: Desk,
 ) -> None:
     logger.info("Starting discovery cycle…")
-    # Exits first: stops must not wait behind a slow discovery pass.
-    await desk.mark_open(ds)
-    await desk.resolve_counterfactuals(ds)
 
     profiles = await ds.get_latest_token_profiles()
     logger.info(f"Fetched {len(profiles)} latest token profiles")
@@ -293,6 +290,20 @@ async def discovery_cycle(
     )
 
 
+async def position_loop(desk: Desk, ds: DexScreenerClient, stop: asyncio.Event, interval: float) -> None:
+    """Mark open positions and resolve counterfactuals every interval seconds."""
+    while not stop.is_set():
+        try:
+            await desk.mark_open(ds)
+            await desk.resolve_counterfactuals(ds)
+        except Exception as e:
+            logger.exception(f"position loop error: {e}")
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            pass
+
+
 def _build_scanner(cfg: dict, ds: DexScreenerClient) -> NewPairScanner:
     sniper_cfg = cfg.get("sniper") or {}
     scanner_cfg = ScannerConfig(
@@ -332,25 +343,13 @@ async def run_sniper_mode(
         await process_pair(pair, cfg, coin_bl, dev_bl, ds, rc, store, tg, desk, older_scan=False)
 
     # Background task that keeps the risk engine alive (stops / trails / counterfactuals)
-    async def exit_loop() -> None:
-        while not stop.is_set():
-            try:
-                await desk.mark_open(ds)
-                await desk.resolve_counterfactuals(ds)
-            except Exception as e:
-                logger.exception(f"[sniper] exit loop error: {e}")
-            try:
-                await asyncio.wait_for(stop.wait(), timeout=8.0)
-            except asyncio.TimeoutError:
-                pass
-
-    exit_task = asyncio.create_task(exit_loop())
+    pos_task = asyncio.create_task(position_loop(desk, ds, stop, cfg["runtime"]["mark_interval_seconds"]))
     try:
         await scanner.run(on_pair=on_pair, stop_event=stop)
     finally:
-        exit_task.cancel()
+        pos_task.cancel()
         try:
-            await exit_task
+            await pos_task
         except asyncio.CancelledError:
             pass
 
@@ -420,14 +419,24 @@ async def main() -> None:
         else:
             interval = cfg["dexscreener"].get("poll_interval_seconds", 60)
             logger.info(f"Normal mode — poll every {interval}s")
-            while not stop.is_set():
+            pos_task = asyncio.create_task(
+                position_loop(desk, ds, stop, cfg["runtime"]["mark_interval_seconds"])
+            )
+            try:
+                while not stop.is_set():
+                    try:
+                        await discovery_cycle(cfg, ds, rc, store, tg, coin_bl, dev_bl, desk)
+                    except Exception as e:
+                        logger.exception(f"Cycle error: {e}")
+                    try:
+                        await asyncio.wait_for(stop.wait(), timeout=interval)
+                    except asyncio.TimeoutError:
+                        pass
+            finally:
+                pos_task.cancel()
                 try:
-                    await discovery_cycle(cfg, ds, rc, store, tg, coin_bl, dev_bl, desk)
-                except Exception as e:
-                    logger.exception(f"Cycle error: {e}")
-                try:
-                    await asyncio.wait_for(stop.wait(), timeout=interval)
-                except asyncio.TimeoutError:
+                    await pos_task
+                except asyncio.CancelledError:
                     pass
     finally:
         await ds.close()
