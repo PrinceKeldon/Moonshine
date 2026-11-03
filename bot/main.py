@@ -8,6 +8,11 @@ DexScreener Bot — full pipeline
 5. Rugs are blocked. Pumps and older-scan breakouts are scored and offered to the desk
 6. Score the survivors; the Desk (risk engine) decides whether to buy
 7. Every cycle: mark open positions, fire stop / trail exits, resolve counterfactuals
+
+Modes
+-----
+- normal  : original 60s discovery cycle (profiles + older-token boosts)
+- sniper  : aggressive DexScreener polling focused on brand-new pairs only
 """
 from __future__ import annotations
 
@@ -35,6 +40,7 @@ from bot.analysis import (
 from bot.config import load_blacklist, load_config, save_blacklist
 from bot.desk import Desk
 from bot.dexscreener import DexScreenerClient
+from bot.new_pair_scanner import NewPairScanner, ScannerConfig, SeenCache
 from bot.rugcheck import RugCheckClient
 from bot.storage import Storage
 from bot.telegram_trader import TelegramTrader
@@ -221,8 +227,10 @@ async def process_pair(
     signal = pair.get("older_scan_signal")
     if signal:
         kind = f"{kind} [{signal}]"
+    age_s = pair.get("_scanner_age_s")
+    age_note = f" | age {age_s:.0f}s" if age_s is not None else ""
     logger.success(
-        f"{kind}: {pair.get('symbol')} | liq ${pair.get('liquidity_usd'):,.0f} | score {score:.2f}"
+        f"{kind}: {pair.get('symbol')} | liq ${pair.get('liquidity_usd'):,.0f} | score {score:.2f}{age_note}"
     )
     await desk.consider(pair, score, ds)
 
@@ -284,6 +292,68 @@ async def discovery_cycle(
     )
 
 
+def _build_scanner(cfg: dict, ds: DexScreenerClient) -> NewPairScanner:
+    sniper_cfg = cfg.get("sniper") or {}
+    scanner_cfg = ScannerConfig(
+        poll_interval_seconds=float(sniper_cfg.get("poll_interval_seconds", 4.0)),
+        rate_limit_delay=float(sniper_cfg.get("rate_limit_delay", 0.12)),
+        max_age_seconds=int(sniper_cfg.get("max_age_seconds", 180)),
+        max_candidates_per_cycle=int(sniper_cfg.get("max_candidates_per_cycle", 12)),
+        seen_ttl_seconds=int(sniper_cfg.get("seen_ttl_seconds", 600)),
+        min_liquidity_usd=float(sniper_cfg.get("min_liquidity_usd", 5000)),
+        chain=cfg.get("dexscreener", {}).get("chain", "solana"),
+        prefer_dexes=tuple(sniper_cfg.get("prefer_dexes") or ("raydium", "pumpswap", "pumpfun", "meteora")),
+    )
+    # Honour the tighter rate-limit delay while in sniper mode
+    ds.delay = scanner_cfg.rate_limit_delay
+    return NewPairScanner(
+        ds=ds,
+        cfg=scanner_cfg,
+        seen=SeenCache(ttl_seconds=scanner_cfg.seen_ttl_seconds),
+    )
+
+
+async def run_sniper_mode(
+    cfg: dict,
+    ds: DexScreenerClient,
+    rc: RugCheckClient,
+    store: Storage,
+    tg: TelegramTrader,
+    coin_bl: set[str],
+    dev_bl: set[str],
+    desk: Desk,
+    stop: asyncio.Event,
+) -> None:
+    """Aggressive new-pair loop. Runs exits on a short timer in parallel."""
+    scanner = _build_scanner(cfg, ds)
+
+    async def on_pair(pair: dict) -> None:
+        await process_pair(pair, cfg, coin_bl, dev_bl, ds, rc, store, tg, desk, older_scan=False)
+
+    # Background task that keeps the risk engine alive (stops / trails / counterfactuals)
+    async def exit_loop() -> None:
+        while not stop.is_set():
+            try:
+                await desk.mark_open(ds)
+                await desk.resolve_counterfactuals(ds)
+            except Exception as e:
+                logger.exception(f"[sniper] exit loop error: {e}")
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=8.0)
+            except asyncio.TimeoutError:
+                pass
+
+    exit_task = asyncio.create_task(exit_loop())
+    try:
+        await scanner.run(on_pair=on_pair, stop_event=stop)
+    finally:
+        exit_task.cancel()
+        try:
+            await exit_task
+        except asyncio.CancelledError:
+            pass
+
+
 async def main() -> None:
     cfg = load_config(ROOT / "config.yaml")
     log_level = cfg.get("runtime", {}).get("log_level", "INFO")
@@ -295,9 +365,14 @@ async def main() -> None:
     dev_bl = load_blacklist(cfg["blacklists"]["devs_file"])
     logger.info(f"Loaded blacklists: {len(coin_bl)} coins, {len(dev_bl)} devs")
 
+    mode = (cfg.get("runtime") or {}).get("mode", "normal").lower()
+    ds_delay = cfg["dexscreener"].get("rate_limit_delay", 0.25)
+    if mode == "sniper":
+        ds_delay = (cfg.get("sniper") or {}).get("rate_limit_delay", 0.12)
+
     ds = DexScreenerClient(
         base_url=cfg["dexscreener"]["base_url"],
-        delay=cfg["dexscreener"].get("rate_limit_delay", 0.25),
+        delay=ds_delay,
     )
     rc = RugCheckClient(base_url=cfg["rugcheck"]["base_url"])
     store = Storage(cfg["storage"]["db_file"], cfg["storage"]["analysis_jsonl"])
@@ -318,19 +393,24 @@ async def main() -> None:
         except NotImplementedError:
             pass
 
-    interval = cfg["dexscreener"].get("poll_interval_seconds", 60)
-    logger.info(f"Bot started (dry_run={cfg.get('runtime', {}).get('dry_run')}). Poll every {interval}s")
+    dry = cfg.get("runtime", {}).get("dry_run", True)
+    logger.info(f"Bot started | mode={mode} | dry_run={dry}")
 
     try:
-        while not stop.is_set():
-            try:
-                await discovery_cycle(cfg, ds, rc, store, tg, coin_bl, dev_bl, desk)
-            except Exception as e:
-                logger.exception(f"Cycle error: {e}")
-            try:
-                await asyncio.wait_for(stop.wait(), timeout=interval)
-            except asyncio.TimeoutError:
-                pass
+        if mode == "sniper":
+            await run_sniper_mode(cfg, ds, rc, store, tg, coin_bl, dev_bl, desk, stop)
+        else:
+            interval = cfg["dexscreener"].get("poll_interval_seconds", 60)
+            logger.info(f"Normal mode — poll every {interval}s")
+            while not stop.is_set():
+                try:
+                    await discovery_cycle(cfg, ds, rc, store, tg, coin_bl, dev_bl, desk)
+                except Exception as e:
+                    logger.exception(f"Cycle error: {e}")
+                try:
+                    await asyncio.wait_for(stop.wait(), timeout=interval)
+                except asyncio.TimeoutError:
+                    pass
     finally:
         await ds.close()
         await rc.close()
