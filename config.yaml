@@ -106,9 +106,18 @@ risk:
   max_position_pct: 0.08        # share of equity per name at full conviction
   min_notional: 25              # skip tickets smaller than this
   fee_rate: 0.003               # per side; tune to your real DEX + trading-bot fees
-  hard_stop: -0.06
-  trail_arm: 0.12               # trail only arms after this gain...
-  trail_give: 0.06              # ...then exits after giving back this much from the peak
+
+  # --- Micro-profit / sniper exits ---
+  # Designed so first scale-out already clears typical fees + slippage.
+  hard_stop: -0.05              # tighter stop for sniping
+  trail_arm: 0.08               # trail arms earlier (+8%)
+  trail_give: 0.04              # give back 4% from peak
+  take_profit_1: 0.06           # first scale-out at +6%
+  take_profit_1_pct: 0.50       # sell 50% of position
+  take_profit_2: 0.10           # second scale-out at +10%
+  take_profit_2_pct: 0.50       # sell 50% of remaining (25% of original)
+  max_hold_seconds: 480         # time stop ~8 minutes (0 = disabled)
+
   revenge_lock_s: 43200         # no re-entry on a mint for 12h after a losing exit
   daily_loss_pct: 0.05          # halt new entries after losing 5% of day-start equity
   min_score: 0.45               # analyst line (same as the TypeScript live desk)
