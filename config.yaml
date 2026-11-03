@@ -5,8 +5,24 @@
 dexscreener:
   base_url: "https://api.dexscreener.com"
   chain: "solana"
-  poll_interval_seconds: 60          # how often to scan for new / interesting pairs
+  poll_interval_seconds: 60          # normal mode interval
   rate_limit_delay: 0.25             # seconds between requests (stay under 300/min)
+
+# --- Sniper mode (aggressive new-pair detection) ---
+# Set runtime.mode: "sniper" to use this path instead of the slower discovery cycle.
+sniper:
+  enabled: true
+  poll_interval_seconds: 4.0         # how often to hit latest token profiles
+  rate_limit_delay: 0.12             # tighter delay for aggressive polling
+  max_age_seconds: 180               # only consider pairs younger than this (3 min)
+  max_candidates_per_cycle: 12       # hard cap per scan to stay under rate limits
+  seen_ttl_seconds: 600              # remember a mint for 10 min (avoid re-processing)
+  min_liquidity_usd: 5000            # soft pre-filter before full pipeline
+  prefer_dexes:                      # prioritise these DEXes
+    - raydium
+    - pumpswap
+    - pumpfun
+    - meteora
 
 rugcheck:
   base_url: "https://api.rugcheck.xyz"
@@ -28,12 +44,12 @@ filters:
   min_volume_24h_usd: 15000
   min_market_cap_usd: 0
   max_market_cap_usd: 5000000
-  max_age_minutes: 180               # only consider pairs younger than this
+  max_age_minutes: 180               # only consider pairs younger than this (normal mode)
   require_socials: false
 
 # --- Older-token scan (DexScreener boosts + optional explicit Solana mints) ---
 older_tokens:
-  enabled: true
+  enabled: true                      # disabled automatically when runtime.mode = sniper
   scan_latest_boosts: true
   scan_top_boosts: true
   mints: []                         # add established Solana mints for continuous monitoring
@@ -115,6 +131,7 @@ storage:
 
 # --- Runtime ---
 runtime:
+  mode: "sniper"                     # "normal" | "sniper"
   dry_run: true                      # true = never send real buy commands
   max_pairs_per_cycle: 30
   log_level: "INFO"
