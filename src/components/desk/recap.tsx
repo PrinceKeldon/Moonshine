@@ -72,9 +72,9 @@ export function RecapScreen() {
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-5 pb-16">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="font-mono text-xs tracking-widest text-amber">{recap.partial ? "INTERIM READ" : "MORNING RECAP"}</p>
+            <p className="font-mono text-xs tracking-widest text-amber">{recap.partial ? "INTERIM READ" : "SESSION RECAP"}</p>
             <h2 id="recap-title" className="mt-1 text-2xl font-medium">
-              {recap.partial ? "The night is still open" : "The night is closed"}
+              {recap.partial ? "The 24h session is still open" : "The 24h session is closed"}
             </h2>
             <p className="mt-1 font-mono text-sm text-muted">
               Desk {deskClock(recap.from)} – {deskClock(recap.to)}
@@ -157,10 +157,11 @@ export function RecapScreen() {
             type="button"
             className="inline-flex min-h-11 items-center gap-2 rounded-md bg-up px-4 text-sm font-medium text-ink"
             onClick={() => {
-              startNight();
+              if (recap.partial) closeRecap();
+              else startNight();
             }}
           >
-            {recap.partial ? "Run the rest of the night" : "Run the next night"}
+            {recap.partial ? "Run the rest of the 24h" : "Run the next 24h"}
           </button>
           <button
             type="button"

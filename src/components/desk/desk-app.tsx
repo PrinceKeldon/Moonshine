@@ -5,7 +5,6 @@ import {
   Crosshair,
   Filter,
   LoaderCircle,
-  Moon,
   Pause,
   Play,
   Radar,
@@ -21,7 +20,7 @@ import { WalletButton } from "@/components/desk/wallet";
 import { LiveButton } from "@/components/desk/live-panel";
 import { runLiveCycle } from "@/lib/desk/autotrade";
 import { bootLive, reconnectPhantom } from "@/lib/desk/solana-wallet";
-import { AGENT_META, equityOf, PAPER_MIN_SCORE, PAPER_MIN_VOL } from "@/lib/desk/engine";
+import { AGENT_META, equityOf, PAPER_MIN_SCORE, PAPER_MIN_VOL, SESSION } from "@/lib/desk/engine";
 import { compactUsd, deskClock, money, pct, pxPrice } from "@/lib/desk/format";
 import { fetchMintPair, fetchPublicTape } from "@/lib/desk/public-tape";
 import { markPrices, screenMint } from "@/lib/desk/live-chain";
@@ -92,13 +91,13 @@ export function DeskApp() {
   }, []);
 
   const running = useDesk((s) => s.running);
-  const overnight = useDesk((s) => s.overnight);
 
   useEffect(() => {
     if (!ready || !running) return;
-    const id = window.setInterval(() => useDesk.getState().tick(), overnight ? 110 : 1500);
+    useDesk.getState().tick();
+    const id = window.setInterval(() => useDesk.getState().tick(), 60_000);
     return () => window.clearInterval(id);
-  }, [ready, running, overnight]);
+  }, [ready, running]);
 
   useEffect(() => {
     if (!ready) return;
@@ -258,7 +257,8 @@ function Skeleton() {
 function Header() {
   const deskTime = useDesk((s) => s.deskTime);
   const running = useDesk((s) => s.running);
-  const overnight = useDesk((s) => s.overnight);
+  const nightTarget = useDesk((s) => s.nightTarget);
+  const recapFrom = useDesk((s) => s.recapFrom);
   const mode = useDesk((s) => s.mode);
   const publicTape = useDesk((s) => s.publicTape);
   const scanState = useDesk((s) => s.scanState);
@@ -272,6 +272,8 @@ function Header() {
   const liveStatus = useLive((s) => s.status);
   const [confirmReset, setConfirmReset] = useState(false);
 
+  const sessionOpen = nightTarget - recapFrom >= SESSION - 60_000 && deskTime < nightTarget;
+  const sessionLeft = Math.max(0, nightTarget - deskTime);
   const tapeLabel =
     scanState === "fetching"
       ? "Fetching public market"
@@ -304,21 +306,16 @@ function Header() {
         </div>
         <p className="num font-mono text-lg" aria-label="Desk clock">
           {deskClock(deskTime)}
-          {overnight ? <span className="ml-2 text-xs text-amber">night</span> : null}
+          {sessionOpen ? <span className="ml-2 text-xs text-amber">{deskClock(sessionLeft)} left in 24h</span> : <span className="ml-2 text-xs text-dim">24h paper</span>}
         </p>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <button type="button" onClick={toggleRun} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-line px-3 text-sm">
-            {running ? <Pause className="size-4" aria-hidden="true" /> : <Play className="size-4" aria-hidden="true" />}
-            {running ? "Pause" : "Resume"}
-          </button>
           <button
             type="button"
-            onClick={startNight}
-            disabled={overnight}
-            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-up px-3 text-sm font-medium text-ink disabled:opacity-60"
+            onClick={() => (running || sessionOpen ? toggleRun() : startNight())}
+            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-up px-3 text-sm font-medium text-ink"
           >
-            <Moon className="size-4" aria-hidden="true" />
-            {overnight ? "Night running" : "Run the night"}
+            {running ? <Pause className="size-4" aria-hidden="true" /> : <Play className="size-4" aria-hidden="true" />}
+            {running ? "Pause" : sessionOpen ? "Resume" : "Run 24h"}
           </button>
           <button type="button" onClick={openRecap} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-line px-3 text-sm">
             <Sunrise className="size-4" aria-hidden="true" />

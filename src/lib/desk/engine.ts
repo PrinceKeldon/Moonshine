@@ -18,7 +18,9 @@ import type {
 
 export const START_CASH = 10_000;
 export const MINUTE = 60_000;
-export const NIGHT = 8 * 60 * MINUTE;
+/** One session. Day and night are this same 24h clock. */
+export const SESSION = 24 * 60 * MINUTE;
+export const NIGHT = SESSION;
 export const MAX_POSITIONS = 4;
 export const MAX_PCT = 0.08;
 export const PAPER_MIN_SCORE = 0.35;
@@ -27,7 +29,8 @@ export const TRAIL_ARM = 0.12;
 export const TRAIL_GIVE = 0.06;
 export const PAPER_MIN_VOL = 10_000;
 export const MAX_TOP10 = 20;
-export const REVENGE_MS = 30 * NIGHT;
+/** A losing mint stays locked until this session's clock has run out. */
+export const REVENGE_MS = SESSION;
 export const FEE = 0.003;
 
 export const AGENT_META: readonly { id: AgentId; name: string; duty: string }[] = [
@@ -319,7 +322,7 @@ function runPipeline(s: DeskState, pair: Pair) {
   if (lock !== undefined && s.deskTime < lock) {
     s.stats.skips += 1;
     s.stats.revengeBlocks += 1;
-    const reason = `No trade. Revenge lock on ${pair.symbol} for the rest of this book. The last exit lost money.`;
+    const reason = `No trade. Revenge lock on ${pair.symbol} for the rest of this 24h session. The last exit lost money.`;
     say(s, "executor", "skip", pair.symbol, reason, "kill");
     say(s, "logger", "note", pair.symbol, `Logged skip. ${reason}`, "work");
     decide(s, pair.symbol, pair.mint, "skip", reason);
@@ -486,6 +489,33 @@ function markBook(s: DeskState) {
     }
   }
   s.opens = still;
+}
+
+/** Mark open paper positions off a live quote and run the same stop and trail. */
+export function applyLiveMarks(input: DeskState, prices: Record<string, number>): DeskState {
+  let changed = false;
+  for (const position of input.opens) {
+    const price = prices[position.mint];
+    if (Number.isFinite(price) && price > 0 && price !== position.price) {
+      changed = true;
+      break;
+    }
+  }
+  if (!changed) return input;
+  const s = copyState(input);
+  s.opens = s.opens.map((position) => {
+    const price = prices[position.mint];
+    return Number.isFinite(price) && price > 0 ? { ...position, price } : position;
+  });
+  markBook(s);
+  const found = auditBook(s);
+  for (const item of found) {
+    if (!s.breaches.includes(item)) s.breaches.push(item);
+  }
+  const equity = cents(equityOf(s));
+  s.equity.push({ t: s.deskTime, equity });
+  if (s.equity.length > 1200) s.equity.splice(0, s.equity.length - 1200);
+  return s;
 }
 
 export function noteMode(input: DeskState, mode: "paper" | "shadow"): DeskState {
@@ -693,7 +723,7 @@ function narrate(r: Recap): string {
   const delta = r.endEquity - r.startEquity;
   const base = r.startEquity === 0 ? 0 : delta / r.startEquity;
   const direction = delta > 1 ? "higher" : delta < -1 ? "lower" : "flat";
-  const window = r.partial ? "This is an interim read — the night is not closed." : "The night is closed.";
+  const window = r.partial ? "This is an interim read — the 24h session is not closed." : "The 24h session is closed.";
   const signing =
     r.mode === "shadow"
       ? "The session was armed as shadow: the same rules, orders written and then withheld. Nothing was signed."

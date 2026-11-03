@@ -3,9 +3,10 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import {
   buildRecap,
   createDesk,
-  nextNightTarget,
-  nightBounds,
+  applyLiveMarks,
   noteMode,
+  SESSION,
+  MINUTE,
   stepMinute,
 } from "@/lib/desk/engine";
 import type { AgentId, Decision, DeskLog, DeskState, Pair, PublicTapeResult, Tone, WatchSnapshot } from "@/lib/desk/types";
@@ -113,42 +114,46 @@ export const useDesk = create<DeskState & DeskActions>()(
       tick: () =>
         set((cur) => {
           if (!cur.running) return cur;
-          const bursts = cur.overnight ? 4 : 1;
-          let next: DeskState = cur;
-          for (let i = 0; i < bursts; i += 1) {
-            next = stepMinute(next);
-            if (cur.overnight && next.deskTime >= cur.nightTarget) return finishNight(cur, next);
-          }
-          return next;
+          const span = cur.nightTarget - cur.recapFrom;
+          if (span < SESSION - MINUTE) return { running: false, overnight: false };
+          const next = stepMinute(cur);
+          if (next.deskTime >= cur.nightTarget) return finishNight(cur, next);
+          return { ...next, overnight: false };
         }),
       toggleRun: () =>
-        set((cur) => ({
-          running: !cur.running,
-          overnight: cur.running ? false : cur.overnight,
-        })),
+        set((cur) => {
+          if (cur.running) return { running: false, overnight: false };
+          const span = cur.nightTarget - cur.recapFrom;
+          const open = span >= SESSION - MINUTE && cur.deskTime < cur.nightTarget;
+          if (!open) {
+            return {
+              running: true,
+              overnight: false,
+              recapOpen: false,
+              heldRun: false,
+              recapFrom: cur.deskTime,
+              nightTarget: cur.deskTime + SESSION,
+            };
+          }
+          return { running: true, overnight: false, recapOpen: false };
+        }),
       startNight: () =>
-        set((cur) => {
-          const night = nextNightTarget(cur.deskTime);
-          return {
-            running: true,
-            overnight: true,
-            recapOpen: false,
-            heldRun: false,
-            recapFrom: night.from,
-            nightTarget: night.target,
-          };
-        }),
+        set((cur) => ({
+          running: true,
+          overnight: false,
+          recapOpen: false,
+          heldRun: false,
+          recapFrom: cur.deskTime,
+          nightTarget: cur.deskTime + SESSION,
+        })),
       openRecap: () =>
-        set((cur) => {
-          const bounds = nightBounds(cur.deskTime);
-          return {
-            recap: buildRecap(cur, bounds.from, bounds.to),
-            recapOpen: true,
-            heldRun: cur.running,
-            running: false,
-            overnight: false,
-          };
-        }),
+        set((cur) => ({
+          recap: buildRecap(cur, cur.recapFrom, cur.deskTime),
+          recapOpen: true,
+          heldRun: cur.running,
+          running: false,
+          overnight: false,
+        })),
       closeRecap: () =>
         set((cur) => ({
           recapOpen: false,
@@ -230,13 +235,7 @@ export const useDesk = create<DeskState & DeskActions>()(
             checkedMints: [...checkedMints].slice(-400),
           };
         }),
-      markPaperPrices: (prices) =>
-        set((cur) => ({
-          opens: cur.opens.map((position) => {
-            const price = prices[position.mint];
-            return Number.isFinite(price) && price > 0 ? { ...position, price } : position;
-          }),
-        })),
+      markPaperPrices: (prices) => set((cur) => applyLiveMarks(cur, prices)),
       saveWatch: (address, snapshot) => set({ watchAddress: address, watch: snapshot }),
       clearWatch: () => set({ watchAddress: "", watch: null }),
     }),
