@@ -1,7 +1,7 @@
-import { i as __toESM, r as __require, t as __commonJSMin } from "../../_runtime.mjs";
+import { i as __require, o as __toESM, t as __commonJSMin } from "../../_runtime.mjs";
 import { i as parseHref, r as normalizeProtocolRelative } from "../tanstack__history.mjs";
 import { PassThrough, Readable } from "node:stream";
-//#region node_modules/react/cjs/react.production.js
+// node_modules/react/cjs/react.production.js
 /**
 * @license React
 * react.production.js
@@ -385,25 +385,21 @@ var require_react_production = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.useTransition = function() {
 		return ReactSharedInternals.H.useTransition();
 	};
-	exports.version = "19.3.0";
+	exports.version = "19.3.1";
 }));
-//#endregion
-//#region node_modules/react/index.js
+// node_modules/react/index.js
 var require_react = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = require_react_production();
 }));
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/not-found.js
+// node_modules/@tanstack/router-core/dist/esm/not-found.js
 /** Determine if a value is a TanStack Router not-found error. */
 function isNotFound(obj) {
 	return obj?.isNotFound === true;
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/root.js
+// node_modules/@tanstack/router-core/dist/esm/root.js
 /** Stable identifier used for the root route in a route tree. */
 var rootRouteId = "__root__";
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/redirect.js
+// node_modules/@tanstack/router-core/dist/esm/redirect.js
 /**
 * Create a redirect Response understood by TanStack Router.
 *
@@ -441,13 +437,11 @@ function isRedirect(obj) {
 function parseRedirect(obj) {
 	if (obj !== null && typeof obj === "object" && obj.isSerializedRedirect) return redirect(obj);
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/ssr/ssr-match-id.js
+// node_modules/@tanstack/router-core/dist/esm/ssr/ssr-match-id.js
 function dehydrateSsrMatchId(id) {
-	return id.replaceAll("~", "~~").replaceAll("\0", "~0").replaceAll("�", "~r").replaceAll("/", "\0");
+	return id.replaceAll("/", "#");
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/utils.js
+// node_modules/@tanstack/router-core/dist/esm/utils.js
 /**
 * Return the last element of an array.
 * Intended for non-empty arrays used within router internals.
@@ -667,8 +661,7 @@ function arraysEqual(a, b) {
 	for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
 	return true;
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/path.js
+// node_modules/@tanstack/router-core/dist/esm/path.js
 /** Remove repeated slashes from a path string. */
 function cleanPath(path) {
 	return path.replace(/\/{2,}/g, "/");
@@ -724,9 +717,10 @@ function resolvePath(base, to, trailingSlash = "never", cache) {
 			if (value === "") {
 				if (!index) baseSegments = [value];
 				else if (index === length - 1) baseSegments.push(value);
-			} else if (value === "..") if (baseSegments.length > 1) baseSegments.pop();
-			else baseSegments = [""];
-			else if (value === ".") {} else baseSegments.push(value);
+			} else if (value === "..") {
+				if (baseSegments.length > 1) baseSegments.pop();
+				else baseSegments = [""];
+			} else if (value === ".") {} else baseSegments.push(value);
 		}
 	}
 	if (baseSegments.length > 1) {
@@ -786,8 +780,7 @@ function interpolatePath(path, segments, params, decoder, usedParams) {
 	}
 	return joined + trailingSlash || "/";
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/sieve-cache.js
+// node_modules/@tanstack/router-core/dist/esm/sieve-cache.js
 /**
 * A fixed-capacity cache using the SIEVE eviction algorithm
 * (https://cachemon.github.io/SIEVE-website/).
@@ -842,13 +835,11 @@ function createSieveCache(max) {
 		}
 	};
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/invariant.js
+// node_modules/@tanstack/router-core/dist/esm/invariant.js
 function invariant() {
 	throw new Error("Invariant failed");
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/new-process-route-tree.js
+// node_modules/@tanstack/router-core/dist/esm/new-process-route-tree.js
 var SEGMENT_TYPE_INDEX = 4;
 var SEGMENT_TYPE_PATHLESS = 5;
 function getParamNames(data) {
@@ -860,7 +851,7 @@ function getParamNames(data) {
 }
 /** Parse one segment for matching and retain the same record for interpolation. */
 function parseSegment(path, start, end) {
-	const part = path.substring(start, end);
+	const part = path.slice(start, end);
 	if (part.charCodeAt(0) === 36) return part.length === 1 ? [
 		2,
 		"_splat",
@@ -868,7 +859,7 @@ function parseSegment(path, start, end) {
 		void 0
 	] : [
 		1,
-		part.substring(1),
+		part.slice(1),
 		"",
 		""
 	];
@@ -878,12 +869,12 @@ function parseSegment(path, start, end) {
 		const optional = part.charCodeAt(open + 1) === 45;
 		const nameStart = open + (optional ? 3 : 2);
 		if (close >= 0 && part.charCodeAt(nameStart - 1) === 36 && (!optional || nameStart < close)) {
-			const key = part.substring(nameStart, close);
+			const key = part.slice(nameStart, close);
 			return [
 				optional ? 3 : key ? 1 : 2,
 				key || "_splat",
-				part.substring(0, open),
-				path.substring(start + close + 1, key ? end : path.length)
+				part.slice(0, open),
+				path.slice(start + close + 1, key ? end : path.length)
 			];
 		}
 	}
@@ -944,7 +935,7 @@ function parseSegments(defaultCaseSensitive, route, start, node, dynamicListsToS
 				cursor = end + 1;
 			}
 			if (interpolation && literalStart < end) {
-				if (literalStart < start - 1) interpolation.push(path.substring(literalStart, start - 1));
+				if (literalStart < start - 1) interpolation.push(path.slice(literalStart, start - 1));
 				segment[2] = "/" + prefix;
 				if (kind === 2 && segment[3] !== void 0 && literalEnd < length) segment[3] = suffix.slice(0, -1);
 				interpolation.push(segment);
@@ -968,7 +959,7 @@ function parseSegments(defaultCaseSensitive, route, start, node, dynamicListsToS
 		}
 		node = nextNode;
 	}
-	if (interpolation && literalStart < literalEnd) interpolation.push(path.substring(literalStart, literalEnd));
+	if (interpolation && literalStart < literalEnd) interpolation.push(path.slice(literalStart, literalEnd));
 	const segmentData = interpolation?.slice();
 	if (!node) return segmentData;
 	if (parseParams && route.children && !route.isRoot && route.id && route.id.charCodeAt(route.id.lastIndexOf("/") + 1) === 95) {
@@ -1420,8 +1411,7 @@ function isFrameMoreSpecific(prev, next) {
 	if (!prev) return true;
 	return next.statics > prev.statics || next.statics === prev.statics && (next.dynamics > prev.dynamics || next.dynamics === prev.dynamics && (next.optionals > prev.optionals || next.optionals === prev.optionals && ((next.node.kind === SEGMENT_TYPE_INDEX) > (prev.node.kind === SEGMENT_TYPE_INDEX) || next.node.kind === SEGMENT_TYPE_INDEX === (prev.node.kind === SEGMENT_TYPE_INDEX) && next.node.depth > prev.node.depth)));
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/scroll-restoration.js
+// node_modules/@tanstack/router-core/dist/esm/scroll-restoration.js
 function getSafeSessionStorage() {
 	try {
 		return sessionStorage;
@@ -1440,8 +1430,7 @@ getSafeSessionStorage();
 var defaultGetScrollRestorationKey = (location) => {
 	return location.state.__TSR_key || location.href;
 };
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/qss.js
+// node_modules/@tanstack/router-core/dist/esm/qss.js
 /**
 * Program is a reimplementation of the `qss` package:
 * Copyright (c) Luke Edwards luke.edwards05@gmail.com, MIT License
@@ -1506,8 +1495,7 @@ function decode(str) {
 	}
 	return result;
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/searchParams.js
+// node_modules/@tanstack/router-core/dist/esm/searchParams.js
 var jsonStart = /^(?:\s|["[{\d-]|fa|nu|tr)/;
 /** Default `parseSearch` that strips leading '?' and JSON-parses values. */
 var defaultParseSearch = parseSearchWith(JSON.parse);
@@ -1526,7 +1514,7 @@ var defaultStringifySearch = stringifySearchWith(JSON.stringify, JSON.parse);
 function parseSearchWith(parser) {
 	const isJsonParser = parser === JSON.parse;
 	return (searchStr) => {
-		if (searchStr[0] === "?") searchStr = searchStr.substring(1);
+		if (searchStr[0] === "?") searchStr = searchStr.slice(1);
 		const query = decode(searchStr);
 		for (const key in query) {
 			const value = query[key];
@@ -1572,8 +1560,7 @@ function stringifySearchWith(stringify, parser) {
 		return searchStr ? `?${searchStr}` : "";
 	};
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/rewrite.js
+// node_modules/@tanstack/router-core/dist/esm/rewrite.js
 /** Create a rewrite pair that strips/adds a basepath on input/output. */
 function rewriteBasepath(basepath, caseSensitive, rewrite) {
 	const trimmedBasepath = trimPath(basepath);
@@ -1615,8 +1602,7 @@ function executeRewriteOutput(rewrite, url) {
 	}
 	return url;
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/stores.js
+// node_modules/@tanstack/router-core/dist/esm/stores.js
 /** SSR non-reactive createMutableStore */
 function createNonReactiveMutableStore(initialValue) {
 	let value = initialValue;
@@ -1683,8 +1669,7 @@ function createRouterStores(initialLocation, config) {
 	}
 	return store;
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/router.js
+// node_modules/@tanstack/router-core/dist/esm/router.js
 function isExternalUrl(url, origin) {
 	return url.protocol !== "http:" && url.protocol !== "https:" || url.origin !== origin || !!url.username || !!url.password;
 }
@@ -1754,7 +1739,9 @@ var RouterCore = class {
 			};
 			this.isServer = this.options.isServer ?? true ?? typeof document === "undefined";
 			this.protocolAllowlist = new Set(this.options.protocolAllowlist);
-			if (!this.history || this.options.history && this.options.history !== this.history) if (!this.options.history) {} else this.history = this.options.history;
+			if (!this.history || this.options.history && this.options.history !== this.history) {
+				if (!this.options.history) {} else this.history = this.options.history;
+			}
 			this.origin = this.options.origin;
 			if (!this.origin) this.origin = "http://localhost";
 			const nextBasepath = this.options.basepath ?? "/";
@@ -1888,14 +1875,12 @@ var RouterCore = class {
 						hash: parsed.hash.slice(1)
 					};
 				}
-				const currentLocation = dest._fromLocation || this._pendingLocation || this.latestLocation;
+				const currentLocation = opts._fromLocation || this._pendingLocation || this.latestLocation;
 				let lightweight;
 				const current = () => {
 					return currentLocation;
 				};
-				const currentMatch = () => {
-					return lightweight ??= this.matchRoutesLightweight(currentLocation);
-				};
+				const currentMatch = () => lightweight ??= this.matchRoutesLightweight(current());
 				const to = dest.to ? `${dest.to}` : ".";
 				const nextTo = resolvePath(to[0] === "/" ? "" : dest.unsafeRelative === "path" ? current().pathname : dest.from ?? currentMatch()[1], to, this.options.trailingSlash, this.resolvePathCache);
 				const destRoute = this.routesByPath[trimPathRight(nextTo)];
@@ -2160,8 +2145,10 @@ var RouterCore = class {
 		const [initialMatchedRoutes, rawParams, foundRoute] = this.getMatchedRoutes(next.pathname);
 		let matchedRoutes = initialMatchedRoutes;
 		let isGlobalNotFound = false;
-		if (foundRoute ? foundRoute.path !== "/" && rawParams["**"] : trimPathRight(next.pathname)) if (this.options.notFoundRoute) matchedRoutes = [...matchedRoutes, this.options.notFoundRoute];
-		else isGlobalNotFound = true;
+		if (foundRoute ? foundRoute.path !== "/" && rawParams["**"] : trimPathRight(next.pathname)) {
+			if (this.options.notFoundRoute) matchedRoutes = [...matchedRoutes, this.options.notFoundRoute];
+			else isGlobalNotFound = true;
+		}
 		const _notFoundRouteId = isGlobalNotFound ? findGlobalNotFoundRouteId(this.options.notFoundMode, matchedRoutes) : void 0;
 		const matches = new Array(matchedRoutes.length);
 		const committed = this._committed;
@@ -2416,16 +2403,17 @@ function extractStrictParams(route, accumulatedParams) {
 	const parseParams = route.options.params?.parse ?? route.options.parseParams;
 	if (parseParams) Object.assign(accumulatedParams, parseParams(accumulatedParams));
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/load-client.js
+// node_modules/@tanstack/router-core/dist/esm/load-client.js
 function preloadComponent(route, type) {
 	return route.options[type]?.preload?.();
 }
 function loadComponents(route, onPendingReady) {
 	const component = preloadComponent(route, "component");
 	let pending = preloadComponent(route, "pendingComponent");
-	if (onPendingReady) if (pending) pending = pending.then(onPendingReady);
-	else onPendingReady();
+	if (onPendingReady) {
+		if (pending) pending = pending.then(onPendingReady);
+		else onPendingReady();
+	}
 	if (component && pending) return Promise.all([component, pending]).then(() => {});
 	return component ?? pending;
 }
@@ -2736,10 +2724,12 @@ function createLoaderTask$1(router, lane, index, tasks, semanticParent, options,
 			if (typeof configured === "function") configured = configured(getLoaderContext$1(router, lane, match, route, options[0], semanticParent, preload));
 			if (options[0].signal.aborted) reloadFailure = CANCELED_OUTCOME;
 		}
-		if (!reloadFailure) if (match.status !== "success") reload = true;
-		else {
-			const staleAge = preload || match.preload ? route.options.preloadStaleTime ?? router.options.defaultPreloadStaleTime ?? 3e4 : route.options.staleTime ?? router.options.defaultStaleTime ?? 0;
-			reload = !!(match.invalid || configured || configured === void 0 && Date.now() - match.updatedAt >= staleAge && (options[5] || match.cause === "enter" || options[2].some((candidate) => candidate.routeId === match.routeId && candidate.id !== match.id)));
+		if (!reloadFailure) {
+			if (match.status !== "success") reload = true;
+			else {
+				const staleAge = preload || match.preload ? route.options.preloadStaleTime ?? router.options.defaultPreloadStaleTime ?? 3e4 : route.options.staleTime ?? router.options.defaultStaleTime ?? 0;
+				reload = !!(match.invalid || configured || configured === void 0 && Date.now() - match.updatedAt >= staleAge && (options[5] || match.cause === "enter" || options[2].some((candidate) => candidate.routeId === match.routeId && candidate.id !== match.id)));
+			}
 		}
 	} catch (cause) {
 		match.invalid = true;
@@ -3110,8 +3100,7 @@ async function preloadClientRoute(router, opts) {
 		}
 	}
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/await-signal.js
+// node_modules/@tanstack/router-core/dist/esm/await-signal.js
 function observeLate(callback, value) {
 	if (!callback) return;
 	try {
@@ -3146,8 +3135,7 @@ function waitForReason(value, signal, onLate, onLateError) {
 		});
 	});
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/load-server.js
+// node_modules/@tanstack/router-core/dist/esm/load-server.js
 var SUCCESS = 0;
 var ERROR = 1;
 var NOT_FOUND = 2;
@@ -3680,7 +3668,7 @@ async function executeServerLane(router, location, matchedMatches, signal) {
 	}
 }
 async function loadServerRoute(router, opts) {
-	router.updateLatestLocation();
+	if (!opts?._skipLocationUpdate) router.updateLatestLocation();
 	const next = router.latestLocation;
 	const previous = router._committed;
 	const previousEnd = router._lifecycleEnd;
@@ -3732,8 +3720,7 @@ async function loadServerRoute(router, opts) {
 	router._commitPromise?.resolve();
 	router._commitPromise = void 0;
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/utils.js
+// node_modules/@tanstack/react-router/dist/esm/utils.js
 var import_react = /* @__PURE__ */ __toESM(require_react(), 1);
 /**
 * React.use if available (React 19+), undefined otherwise.
@@ -3741,8 +3728,7 @@ var import_react = /* @__PURE__ */ __toESM(require_react(), 1);
 */
 var reactUse = import_react.use;
 var useLayoutEffect = import_react.useEffect;
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/manifest.js
+// node_modules/@tanstack/router-core/dist/esm/manifest.js
 function getAssetCrossOrigin(assetCrossOrigin, kind) {
 	if (!assetCrossOrigin) return;
 	if (typeof assetCrossOrigin === "string") return assetCrossOrigin;
@@ -3760,6 +3746,7 @@ function getScriptPreloadAttrs(manifest, link, assetCrossOrigin) {
 			as: "script"
 		} : { rel: "modulepreload" },
 		href: preloadLink.href,
+		fetchPriority: "low",
 		...crossOrigin ? { crossOrigin } : {}
 	};
 }
@@ -3803,8 +3790,7 @@ function createInlineCssStyleAsset(css) {
 function createInlineCssPlaceholderAsset() {
 	return { attrs: { suppressHydrationWarning: true } };
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/ssr/bodyScripts.js
+// node_modules/@tanstack/router-core/dist/esm/ssr/bodyScripts.js
 function getSsrBodyScriptParts(matches, manifest, nonce, routeScriptAttrs) {
 	const assetMatches = _getAssetMatches(matches);
 	const routeScripts = [];
@@ -3841,8 +3827,7 @@ function composeSsrBodyScripts([routeScripts, manifestScripts], initialHydration
 		initialHydrationScripts.boundary
 	];
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/route.js
+// node_modules/@tanstack/router-core/dist/esm/route.js
 var BaseRoute = class {
 	get to() {
 		return this._to;
@@ -3913,8 +3898,7 @@ var BaseRootRoute = class extends BaseRoute {
 		super(options);
 	}
 };
-//#endregion
-//#region node_modules/seroval/dist/index.js
+// node_modules/seroval/dist/index.js
 var SYM_ASYNC_ITERATOR = Symbol.asyncIterator;
 var SYM_HAS_INSTANCE = Symbol.hasInstance;
 var SYM_IS_CONCAT_SPREADABLE = Symbol.isConcatSpreadable;
@@ -3928,35 +3912,15 @@ var SYM_SPLIT = Symbol.split;
 var SYM_TO_PRIMITIVE = Symbol.toPrimitive;
 var SYM_TO_STRING_TAG = Symbol.toStringTag;
 var SYM_UNSCOPABLES = Symbol.unscopables;
-var SYMBOL_STRING = {
-	[0]: "Symbol.asyncIterator",
-	[1]: "Symbol.hasInstance",
-	[2]: "Symbol.isConcatSpreadable",
-	[3]: "Symbol.iterator",
-	[4]: "Symbol.match",
-	[5]: "Symbol.matchAll",
-	[6]: "Symbol.replace",
-	[7]: "Symbol.search",
-	[8]: "Symbol.species",
-	[9]: "Symbol.split",
-	[10]: "Symbol.toPrimitive",
-	[11]: "Symbol.toStringTag",
-	[12]: "Symbol.unscopables"
-};
-var INV_SYMBOL_REF = {
-	[SYM_ASYNC_ITERATOR]: 0,
-	[SYM_HAS_INSTANCE]: 1,
-	[SYM_IS_CONCAT_SPREADABLE]: 2,
-	[SYM_ITERATOR]: 3,
-	[SYM_MATCH]: 4,
-	[SYM_MATCH_ALL]: 5,
-	[SYM_REPLACE]: 6,
-	[SYM_SEARCH]: 7,
-	[SYM_SPECIES]: 8,
-	[SYM_SPLIT]: 9,
-	[SYM_TO_PRIMITIVE]: 10,
-	[SYM_TO_STRING_TAG]: 11,
-	[SYM_UNSCOPABLES]: 12
+var TEMPORAL_TYPE_NAME = {
+	[0]: "Instant",
+	[1]: "Duration",
+	[2]: "PlainDate",
+	[3]: "PlainDateTime",
+	[4]: "PlainMonthDay",
+	[5]: "PlainTime",
+	[6]: "PlainYearMonth",
+	[7]: "ZonedDateTime"
 };
 var SYMBOL_REF = {
 	[0]: SYM_ASYNC_ITERATOR,
@@ -3973,6 +3937,18 @@ var SYMBOL_REF = {
 	[11]: SYM_TO_STRING_TAG,
 	[12]: SYM_UNSCOPABLES
 };
+function createSymbolStringTable() {
+	const result = {};
+	for (let i = 0; i <= 12; i++) result[i] = SYMBOL_REF[i].description;
+	return result;
+}
+var SYMBOL_STRING = /* @__PURE__ */ createSymbolStringTable();
+function createInverseSymbolTable() {
+	const result = {};
+	for (let i = 0; i <= 12; i++) result[SYMBOL_REF[i]] = i;
+	return result;
+}
+var INV_SYMBOL_REF = /* @__PURE__ */ createInverseSymbolTable();
 var CONSTANT_STRING = {
 	[2]: "!0",
 	[3]: "!1",
@@ -3989,18 +3965,9 @@ var CONSTANT_VAL = {
 	[1]: void 0,
 	[0]: null,
 	[4]: -0,
-	[5]: Number.POSITIVE_INFINITY,
-	[6]: Number.NEGATIVE_INFINITY,
+	[5]: Infinity,
+	[6]: -Infinity,
 	[7]: NaN
-};
-var ERROR_CONSTRUCTOR_STRING = {
-	[0]: "Error",
-	[1]: "EvalError",
-	[2]: "RangeError",
-	[3]: "ReferenceError",
-	[4]: "SyntaxError",
-	[5]: "TypeError",
-	[6]: "URIError"
 };
 var ERROR_CONSTRUCTOR = {
 	[0]: Error,
@@ -4011,7 +3978,18 @@ var ERROR_CONSTRUCTOR = {
 	[5]: TypeError,
 	[6]: URIError
 };
+function createErrorConstructorStringTable() {
+	const result = {};
+	for (let i = 0; i <= 6; i++) result[i] = ERROR_CONSTRUCTOR[i].name;
+	return result;
+}
+var ERROR_CONSTRUCTOR_STRING = /* @__PURE__ */ createErrorConstructorStringTable();
 function createSerovalNode(t, i, s, c, m, p, e, a, f, b, o, l) {
+	if (c === void 0 && m === void 0 && p === void 0 && e === void 0 && a === void 0 && f === void 0 && b === void 0 && o === void 0 && l === void 0) return {
+		t,
+		i,
+		s
+	};
 	return {
 		t,
 		i,
@@ -4028,7 +4006,7 @@ function createSerovalNode(t, i, s, c, m, p, e, a, f, b, o, l) {
 	};
 }
 function createConstantNode(value) {
-	return createSerovalNode(2, void 0, value, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0);
+	return createSerovalNode(2, void 0, value);
 }
 var TRUE_NODE = /* @__PURE__ */ createConstantNode(2);
 var FALSE_NODE = /* @__PURE__ */ createConstantNode(3);
@@ -4039,58 +4017,104 @@ var INFINITY_NODE = /* @__PURE__ */ createConstantNode(5);
 var NEG_INFINITY_NODE = /* @__PURE__ */ createConstantNode(6);
 var NAN_NODE = /* @__PURE__ */ createConstantNode(7);
 var MIN_JSON_STRINGIFY_LENGTH = 64;
-var JSON_ESCAPE_DIFFERENCES = /[\x00-\x07\x0b\x0e-\x1f<\u2028\u2029\ud800-\udfff]/;
-function serializeChar(str) {
-	switch (str) {
-		case "\"": return "\\\"";
-		case "\\": return "\\\\";
-		case "\n": return "\\n";
-		case "\r": return "\\r";
-		case "\b": return "\\b";
-		case "	": return "\\t";
-		case "\f": return "\\f";
-		case "<": return "\\x3C";
-		case "\u2028": return "\\u2028";
-		case "\u2029": return "\\u2029";
+var NEEDS_ESCAPE = /["\\\n\r\b\t\f<\u2028\u2029]/;
+var JSON_ESCAPE_DIFFERENCES = /[\x00-\x07\x0b\x0e-\x1f\ud800-\udfff]/;
+var LESS_THAN = /</g;
+var LINE_SEPARATOR = /\u2028/g;
+var PARAGRAPH_SEPARATOR = /\u2029/g;
+function escapeCharCode(code) {
+	switch (code) {
+		case 34: return "\\\"";
+		case 92: return "\\\\";
+		case 10: return "\\n";
+		case 13: return "\\r";
+		case 8: return "\\b";
+		case 9: return "\\t";
+		case 12: return "\\f";
+		case 60: return "\\x3C";
+		case 8232: return "\\u2028";
+		case 8233: return "\\u2029";
 		default: return;
 	}
 }
 function serializeString(str) {
-	if (str.length >= MIN_JSON_STRINGIFY_LENGTH && !JSON_ESCAPE_DIFFERENCES.test(str)) return JSON.stringify(str).slice(1, -1);
+	if (!NEEDS_ESCAPE.test(str)) return str;
+	if (str.length >= MIN_JSON_STRINGIFY_LENGTH && !JSON_ESCAPE_DIFFERENCES.test(str)) {
+		let result = JSON.stringify(str).slice(1, -1);
+		if (result.includes("<")) result = result.replace(LESS_THAN, "\\x3C");
+		if (result.includes("\u2028")) result = result.replace(LINE_SEPARATOR, "\\u2028");
+		if (result.includes("\u2029")) result = result.replace(PARAGRAPH_SEPARATOR, "\\u2029");
+		return result;
+	}
 	let result = "";
 	let lastPos = 0;
 	let replacement;
 	for (let i = 0, len = str.length; i < len; i++) {
-		replacement = serializeChar(str[i]);
+		replacement = escapeCharCode(str.charCodeAt(i));
 		if (replacement) {
 			result += str.slice(lastPos, i) + replacement;
 			lastPos = i + 1;
 		}
 	}
-	if (lastPos === 0) result = str;
-	else result += str.slice(lastPos);
-	return result;
+	return result + str.slice(lastPos);
 }
-function deserializeReplacer(str) {
-	switch (str) {
-		case "\\\\": return "\\";
-		case "\\\"": return "\"";
-		case "\\n": return "\n";
-		case "\\r": return "\r";
-		case "\\b": return "\b";
-		case "\\t": return "	";
-		case "\\f": return "\f";
-		case "\\x3C": return "<";
-		case "\\u2028": return "\u2028";
-		case "\\u2029": return "\u2029";
-		default: return str;
-	}
-}
+var JSON_COMPATIBLE = /^(?:[^"\\\x00-\x1f]|\\["\\nrbtf])*$/;
+var ESCAPE_SEQUENCE = /(\\\\|\\"|\\n|\\r|\\b|\\t|\\f|\\u2028|\\u2029|\\x3C)/g;
 function deserializeString(str) {
-	if (typeof str === "string" && !str.includes("\\")) return str;
-	return str.replace(/(\\\\|\\"|\\n|\\r|\\b|\\t|\\f|\\u2028|\\u2029|\\x3C)/g, deserializeReplacer);
+	if (typeof str !== "string") return str.replace(ESCAPE_SEQUENCE, deserializeString);
+	let index = str.indexOf("\\");
+	if (index === -1) return str;
+	if (JSON_COMPATIBLE.test(str)) return JSON.parse("\"" + str + "\"");
+	let result = "";
+	let lastPos = 0;
+	const last = str.length - 1;
+	while (index !== -1 && index < last) {
+		let replacement;
+		let length = 2;
+		switch (str.charCodeAt(index + 1)) {
+			case 92:
+				replacement = "\\";
+				break;
+			case 34:
+				replacement = "\"";
+				break;
+			case 110:
+				replacement = "\n";
+				break;
+			case 114:
+				replacement = "\r";
+				break;
+			case 98:
+				replacement = "\b";
+				break;
+			case 116:
+				replacement = "	";
+				break;
+			case 102:
+				replacement = "\f";
+				break;
+			case 120:
+				if (str.startsWith("3C", index + 2)) {
+					replacement = "<";
+					length = 4;
+				}
+				break;
+			case 117: if (str.startsWith("2028", index + 2)) {
+				replacement = "\u2028";
+				length = 6;
+			} else if (str.startsWith("2029", index + 2)) {
+				replacement = "\u2029";
+				length = 6;
+			}
+		}
+		if (replacement) {
+			result += str.slice(lastPos, index) + replacement;
+			lastPos = index + length;
+			index = str.indexOf("\\", lastPos);
+		} else index = str.indexOf("\\", index + 1);
+	}
+	return result + str.slice(lastPos);
 }
-var { toString: objectToString } = Object.prototype;
 var STEP_ERROR_CODES = {
 	parsing: 1,
 	serialization: 2,
@@ -4099,16 +4123,20 @@ var STEP_ERROR_CODES = {
 function getErrorMessageProd(type) {
 	return `Seroval Error (step: ${STEP_ERROR_CODES[type]})`;
 }
-var getErrorMessage = (type, cause) => getErrorMessageProd(type);
 var SerovalError = class extends Error {
 	constructor(type, cause) {
-		super(getErrorMessage(type, cause));
+		super(getErrorMessageProd(type));
 		this.cause = cause;
 	}
 };
 var SerovalParserError = class extends SerovalError {
 	constructor(cause) {
 		super("parsing", cause);
+	}
+};
+var SerovalSerializationError = class extends SerovalError {
+	constructor(cause) {
+		super("serialization", cause);
 	}
 };
 var SerovalDeserializationError = class extends SerovalError {
@@ -4140,12 +4168,6 @@ var SerovalMissingInstanceError = class extends Error {
 		super(getSpecificErrorMessage(4));
 	}
 };
-var SerovalMissingReferenceError = class extends Error {
-	constructor(value) {
-		super(getSpecificErrorMessage(5));
-		this.value = value;
-	}
-};
 var SerovalMissingReferenceForIdError = class extends Error {
 	constructor(id) {
 		super(getSpecificErrorMessage(6));
@@ -4161,96 +4183,60 @@ var SerovalMalformedNodeError = class extends Error {
 		super(getSpecificErrorMessage(8));
 	}
 };
-var SerovalDepthLimitError = class extends Error {
-	constructor(limit) {
+var SerovalConflictedNodeIdError = class extends Error {
+	constructor(node) {
 		super(getSpecificErrorMessage(9));
 	}
 };
-var REFERENCES_KEY = "__SEROVAL_REFS__";
-var GLOBAL_CONTEXT_R = `self.\$R`;
-function getCrossReferenceHeader(id) {
-	if (id == null) return `${GLOBAL_CONTEXT_R}=${GLOBAL_CONTEXT_R}||[]`;
-	return `(${GLOBAL_CONTEXT_R}=${GLOBAL_CONTEXT_R}||{})["${serializeString(id)}"]=[]`;
-}
-var REFERENCE = /* @__PURE__ */ new Map();
-var INV_REFERENCE = /* @__PURE__ */ new Map();
-function hasReferenceID(value) {
-	return REFERENCE.has(value);
-}
-function hasReference(id) {
-	return INV_REFERENCE.has(id);
-}
-function getReferenceID(value) {
-	if (hasReferenceID(value)) return REFERENCE.get(value);
-	throw new SerovalMissingReferenceError(value);
-}
-function getReference(id) {
-	if (hasReference(id)) return INV_REFERENCE.get(id);
-	throw new SerovalMissingReferenceForIdError(id);
-}
-if (typeof globalThis !== "undefined") Object.defineProperty(globalThis, REFERENCES_KEY, {
-	value: INV_REFERENCE,
-	configurable: true,
-	writable: false,
-	enumerable: false
-});
-else if (typeof window !== "undefined") Object.defineProperty(window, REFERENCES_KEY, {
-	value: INV_REFERENCE,
-	configurable: true,
-	writable: false,
-	enumerable: false
-});
-else if (typeof self !== "undefined") Object.defineProperty(self, REFERENCES_KEY, {
-	value: INV_REFERENCE,
-	configurable: true,
-	writable: false,
-	enumerable: false
-});
-else if (typeof global !== "undefined") Object.defineProperty(global, REFERENCES_KEY, {
-	value: INV_REFERENCE,
-	configurable: true,
-	writable: false,
-	enumerable: false
-});
+var SerovalDepthLimitError = class extends Error {
+	constructor(limit) {
+		super(getSpecificErrorMessage(10));
+	}
+};
+var SerovalLiveStreamError = class extends Error {
+	constructor(reason) {
+		super(getSpecificErrorMessage(12));
+		this.reason = reason;
+	}
+};
 function getErrorConstructor(error) {
-	if (error instanceof EvalError) return 1;
-	if (error instanceof RangeError) return 2;
-	if (error instanceof ReferenceError) return 3;
-	if (error instanceof SyntaxError) return 4;
-	if (error instanceof TypeError) return 5;
-	if (error instanceof URIError) return 6;
+	for (let i = 1; i <= 6; i++) if (error instanceof ERROR_CONSTRUCTOR[i]) return i;
 	return 0;
 }
-function getInitialErrorOptions(error) {
-	const construct = ERROR_CONSTRUCTOR_STRING[getErrorConstructor(error)];
-	if (error.name !== construct) return { name: error.name };
-	if (error.constructor.name !== construct) return { name: error.constructor.name };
-	return {};
-}
 function getErrorOptions(error, features) {
-	let options = getInitialErrorOptions(error);
-	const names = Object.getOwnPropertyNames(error);
-	for (let i = 0, len = names.length, name; i < len; i++) {
-		name = names[i];
-		if (name !== "name" && name !== "message") {
-			if (name === "stack") {
-				if (features & 4) {
-					options = options || {};
-					options[name] = error[name];
-				}
-			} else {
-				options = options || {};
-				options[name] = error[name];
-			}
-		}
-	}
+	const options = Object.create(null);
+	const construct = ERROR_CONSTRUCTOR_STRING[getErrorConstructor(error)];
+	if (error.name !== construct) options.name = error.name;
+	else if (error.constructor.name !== construct) options.name = error.constructor.name;
+	for (const name of Object.getOwnPropertyNames(error)) if (name !== "name" && name !== "message" && (name !== "stack" || features & 4)) options[name] = error[name];
 	return options;
 }
 function getObjectFlag(obj) {
+	if (Object.isExtensible(obj)) return 0;
 	if (Object.isFrozen(obj)) return 3;
 	if (Object.isSealed(obj)) return 2;
-	if (Object.isExtensible(obj)) return 0;
 	return 1;
+}
+function getTypedArrayConstructor(name) {
+	switch (name) {
+		case "Int8Array": return Int8Array;
+		case "Int16Array": return Int16Array;
+		case "Int32Array": return Int32Array;
+		case "Uint8Array": return Uint8Array;
+		case "Uint16Array": return Uint16Array;
+		case "Uint32Array": return Uint32Array;
+		case "Uint8ClampedArray": return Uint8ClampedArray;
+		case "Float32Array": return Float32Array;
+		case "Float64Array": return Float64Array;
+		case "BigInt64Array": return BigInt64Array;
+		case "BigUint64Array": return BigUint64Array;
+		default: throw new SerovalUnknownTypedArrayError(name);
+	}
+}
+var typedArrayNameGetter;
+function getTypedArrayName(value) {
+	if (!typedArrayNameGetter) typedArrayNameGetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Int8Array.prototype), Symbol.toStringTag).get;
+	return typedArrayNameGetter.call(value);
 }
 function createNumberNode(value) {
 	switch (value) {
@@ -4259,85 +4245,233 @@ function createNumberNode(value) {
 	}
 	if (value !== value) return NAN_NODE;
 	if (Object.is(value, -0)) return NEG_ZERO_NODE;
-	return createSerovalNode(0, void 0, value, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0);
+	return createSerovalNode(0, void 0, value);
 }
 function createStringNode(value) {
-	return createSerovalNode(1, void 0, serializeString(value), void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0);
+	return createSerovalNode(1, void 0, serializeString(value));
 }
 function createBigIntNode(current) {
-	return createSerovalNode(3, void 0, "" + current, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0);
+	return createSerovalNode(3, void 0, "" + current);
 }
 function createIndexedValueNode(id) {
-	return createSerovalNode(4, id, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0);
+	return createSerovalNode(4, id);
 }
 function createDateNode(id, current) {
 	const timestamp = current.valueOf();
-	return createSerovalNode(5, id, timestamp !== timestamp ? "" : current.toISOString(), void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0);
+	return createSerovalNode(5, id, timestamp === timestamp ? current.toISOString() : "");
 }
 function createTemporalNode(id, type, current) {
-	return createSerovalNode(36, id, current.toString(), type, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0);
+	return createSerovalNode(36, id, current.toString(), type);
 }
 function createRegExpNode(id, current) {
-	return createSerovalNode(6, id, void 0, serializeString(current.source), current.flags, void 0, void 0, void 0, void 0, void 0, void 0, void 0);
+	return createSerovalNode(6, id, void 0, serializeString(current.source), current.flags);
 }
 function createWKSymbolNode(id, current) {
-	return createSerovalNode(17, id, INV_SYMBOL_REF[current], void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0);
+	return createSerovalNode(17, id, INV_SYMBOL_REF[current]);
 }
-function createReferenceNode(id, ref) {
-	return createSerovalNode(18, id, serializeString(getReferenceID(ref)), void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0);
+function createReferenceNode(id, referenceId) {
+	return createSerovalNode(18, id, serializeString(referenceId));
 }
 function createPluginNode(id, tag, value) {
-	return createSerovalNode(25, id, value, serializeString(tag), void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0);
+	return createSerovalNode(25, id, value, serializeString(tag));
 }
 function createArrayNode(id, current, parsedItems) {
-	return createSerovalNode(9, id, void 0, void 0, void 0, void 0, void 0, parsedItems, void 0, void 0, getObjectFlag(current), void 0);
+	return createSerovalNode(9, id, void 0, void 0, void 0, void 0, void 0, parsedItems, void 0, void 0, getObjectFlag(current));
 }
 function createBoxedNode(id, boxed) {
-	return createSerovalNode(21, id, void 0, void 0, void 0, void 0, void 0, void 0, boxed, void 0, void 0, void 0);
+	return createSerovalNode(21, id, void 0, void 0, void 0, void 0, void 0, void 0, boxed);
 }
 var MAX_TYPED_ARRAY_LENGTH = 1e6;
-function createTypedArrayNode(id, current, buffer) {
-	if (current.length > MAX_TYPED_ARRAY_LENGTH) throw new SerovalUnsupportedTypeError(current);
-	return createSerovalNode(15, id, void 0, current.constructor.name, void 0, void 0, void 0, void 0, buffer, current.byteOffset, void 0, current.length);
+function createViewNode(type, id, current, buffer) {
+	const isDataView = type === 20;
+	const size = isDataView ? current.byteLength : current.length;
+	if (size > MAX_TYPED_ARRAY_LENGTH) throw new SerovalUnsupportedTypeError(current);
+	return createSerovalNode(type, id, void 0, isDataView ? void 0 : getTypedArrayName(current), void 0, void 0, void 0, void 0, buffer, current.byteOffset, void 0, size);
 }
-function createBigIntTypedArrayNode(id, current, buffer) {
-	if (current.length > MAX_TYPED_ARRAY_LENGTH) throw new SerovalUnsupportedTypeError(current);
-	return createSerovalNode(16, id, void 0, current.constructor.name, void 0, void 0, void 0, void 0, buffer, current.byteOffset, void 0, current.length);
-}
-function createDataViewNode(id, current, buffer) {
-	if (current.byteLength > MAX_TYPED_ARRAY_LENGTH) throw new SerovalUnsupportedTypeError(current);
-	return createSerovalNode(20, id, void 0, void 0, void 0, void 0, void 0, void 0, buffer, current.byteOffset, void 0, current.byteLength);
-}
-function createErrorNode(id, current, options) {
-	return createSerovalNode(13, id, getErrorConstructor(current), void 0, serializeString(current.message), options, void 0, void 0, void 0, void 0, void 0, void 0);
-}
-function createAggregateErrorNode(id, current, options) {
-	return createSerovalNode(14, id, getErrorConstructor(current), void 0, serializeString(current.message), options, void 0, void 0, void 0, void 0, void 0, void 0);
+function createErrorNode(type, id, current, options) {
+	return createSerovalNode(type, id, getErrorConstructor(current), void 0, serializeString(current.message), options);
 }
 function createSetNode(id, items) {
-	return createSerovalNode(7, id, void 0, void 0, void 0, void 0, void 0, items, void 0, void 0, void 0, void 0);
+	return createSerovalNode(7, id, void 0, void 0, void 0, void 0, void 0, items);
 }
-function createIteratorFactoryInstanceNode(factory, items) {
-	return createSerovalNode(28, void 0, void 0, void 0, void 0, void 0, void 0, [factory, items], void 0, void 0, void 0, void 0);
+function createIteratorFactoryInstanceNode(type, factory, items) {
+	return createSerovalNode(type, void 0, void 0, void 0, void 0, void 0, void 0, [factory, items]);
 }
-function createAsyncIteratorFactoryInstanceNode(factory, items) {
-	return createSerovalNode(30, void 0, void 0, void 0, void 0, void 0, void 0, [factory, items], void 0, void 0, void 0, void 0);
+function createStreamConstructorNode(id, factory, sequence, live) {
+	return createSerovalNode(31, id, void 0, void 0, void 0, void 0, void 0, sequence, factory, void 0, void 0, live);
 }
-function createStreamConstructorNode(id, factory, sequence) {
-	return createSerovalNode(31, id, void 0, void 0, void 0, void 0, void 0, sequence, factory, void 0, void 0, void 0);
-}
-function createStreamNextNode(id, parsed) {
-	return createSerovalNode(32, id, void 0, void 0, void 0, void 0, void 0, void 0, parsed, void 0, void 0, void 0);
-}
-function createStreamThrowNode(id, parsed) {
-	return createSerovalNode(33, id, void 0, void 0, void 0, void 0, void 0, void 0, parsed, void 0, void 0, void 0);
-}
-function createStreamReturnNode(id, parsed) {
-	return createSerovalNode(34, id, void 0, void 0, void 0, void 0, void 0, void 0, parsed, void 0, void 0, void 0);
+function createStreamEventNode(type, id, parsed) {
+	return createSerovalNode(type, id, void 0, void 0, void 0, void 0, void 0, void 0, parsed);
 }
 function createSequenceNode(id, sequence, throwAt, doneAt) {
 	return createSerovalNode(35, id, throwAt, void 0, void 0, void 0, void 0, sequence, void 0, void 0, void 0, doneAt);
 }
+function isLiveStream(value) {
+	return value instanceof LiveStream;
+}
+/**
+* A single-consumer stream for incremental serialization. Unlike
+* `createStream`, it keeps no history: at most one event is held, and the
+* producer operation that sent it settles only when the consumer accepts it.
+*
+* An internal class rather than a tagged POJO: identity is checked with
+* `instanceof`, which untrusted input cannot forge. The class is exported
+* because bundlers cannot drop an unexported top-level class.
+*/
+var LiveStream = class {
+	constructor(options) {
+		this.consumed = false;
+		this.closed = false;
+		this.cancelled = false;
+		this.options = options;
+	}
+	deliver(reader, record) {
+		record.delivered = true;
+		reader.resolve({
+			event: record.event,
+			accept: () => {
+				if (this.pending === record && record.delivered) {
+					const terminal = record.event.type !== "next";
+					record.event = void 0;
+					this.pending = void 0;
+					const resolve = record.resolve;
+					record.resolve = void 0;
+					record.reject = void 0;
+					if (terminal) {
+						this.closed = true;
+						this.options = void 0;
+						const waiter = this.waiting;
+						this.waiting = void 0;
+						waiter?.reject(new SerovalLiveStreamError("closed"));
+					}
+					resolve?.();
+				}
+			}
+		});
+	}
+	/** @internal */
+	push(event) {
+		if (this.cancelled) return Promise.reject(this.cancelReason);
+		if (this.closed) return Promise.reject(new SerovalLiveStreamError("closed"));
+		if (this.pending) return Promise.reject(new SerovalLiveStreamError("pending"));
+		return new Promise((resolve, reject) => {
+			const record = {
+				event,
+				delivered: false,
+				resolve,
+				reject
+			};
+			this.pending = record;
+			if (this.waiting) {
+				const waiter = this.waiting;
+				this.waiting = void 0;
+				this.deliver(waiter, record);
+			}
+		});
+	}
+	cancel(reason) {
+		if (this.cancelled || this.closed) return;
+		this.cancelled = true;
+		this.cancelReason = reason;
+		const record = this.pending;
+		const waiter = this.waiting;
+		this.pending = void 0;
+		this.waiting = void 0;
+		const callbackOwner = this.options;
+		this.options = void 0;
+		if (record) {
+			record.event = void 0;
+			const reject = record.reject;
+			record.resolve = void 0;
+			record.reject = void 0;
+			reject?.(reason);
+		}
+		if (waiter) waiter.reject(reason);
+		callbackOwner?.onCancel?.(reason);
+	}
+	read() {
+		if (this.cancelled) return Promise.reject(this.cancelReason);
+		if (this.closed) return Promise.reject(new SerovalLiveStreamError("closed"));
+		if (this.waiting) return Promise.reject(new SerovalLiveStreamError("reading"));
+		return new Promise((resolve, reject) => {
+			const next = {
+				resolve,
+				reject
+			};
+			if (this.pending && !this.pending.delivered) this.deliver(next, this.pending);
+			else this.waiting = next;
+		});
+	}
+	consume() {
+		if (this.consumed) throw new SerovalLiveStreamError("consumed");
+		this.consumed = true;
+		return {
+			read: () => this.read(),
+			cancel: (reason) => this.cancel(reason)
+		};
+	}
+	/**
+	* Consumes the stream through a replay-style listener, accepting each
+	* event as soon as it has been delivered. Use `consume` or `pump` when
+	* acceptance must wait for processing.
+	*/
+	on(listener) {
+		const wrap = (key) => (value, accept) => {
+			listener[key](value);
+			accept();
+		};
+		return this.pump({
+			next: wrap("next"),
+			throw: wrap("throw"),
+			return: wrap("return")
+		});
+	}
+	/**
+	* Consumes the stream into a sink that controls acceptance. Returns the
+	* cancel function.
+	* @internal
+	*/
+	pump(sink) {
+		const consumer = this.consume();
+		let current = sink;
+		function next() {
+			consumer.read().then((delivery) => {
+				const target = current;
+				if (!target) return;
+				const event = delivery.event;
+				let failure;
+				let failed = false;
+				try {
+					failure = target[event.type](event.type === "throw" ? event.error : event.value, delivery.accept);
+				} catch (error) {
+					failed = true;
+					failure = error;
+				}
+				if (failed || failure !== void 0) {
+					current = void 0;
+					try {
+						consumer.cancel(failure);
+					} finally {
+						target.done?.();
+					}
+					return;
+				}
+				if (event.type === "next") {
+					next();
+					return;
+				}
+				current = void 0;
+				target.done?.();
+			}, (reason) => {
+				const target = current;
+				current = void 0;
+				target?.error?.(reason);
+			});
+		}
+		next();
+		return consumer.cancel;
+	}
+};
 /**
 * An opaque reference allows hiding values from the serializer.
 */
@@ -4372,7 +4506,7 @@ var PROMISE_FAILURE = (resolver, data) => {
 var SERIALIZED_PROMISE_CONSTRUCTOR = /* @__PURE__ */ PROMISE_CONSTRUCTOR.toString();
 var SERIALIZED_PROMISE_SUCCESS = /* @__PURE__ */ PROMISE_SUCCESS.toString();
 var SERIALIZED_PROMISE_FAILURE = /* @__PURE__ */ PROMISE_FAILURE.toString();
-var STREAM_CONSTRUCTOR = () => {
+var STREAM_CONSTRUCTOR = (live) => {
 	const buffer = [];
 	const listeners = [];
 	let alive = true;
@@ -4380,6 +4514,7 @@ var STREAM_CONSTRUCTOR = () => {
 	let count = 0;
 	const internal = {
 		flush(value, mode, x) {
+			live > 1 || buffer.push(value);
 			for (x = 0; x < count; x++) {
 				const listener = listeners[x];
 				if (listener) listener[mode](value);
@@ -4393,6 +4528,7 @@ var STREAM_CONSTRUCTOR = () => {
 			}
 		},
 		on(listener, temp = 0) {
+			if (live > 1) throw new Error("Stream consumed");
 			let subscribed = alive;
 			if (alive) {
 				for (temp = 0; temp < count; temp++) if (!listeners[temp]) break;
@@ -4400,6 +4536,10 @@ var STREAM_CONSTRUCTOR = () => {
 				listeners[temp] = listener;
 			}
 			internal.up(listener);
+			if (live) {
+				live = 2;
+				buffer.length = 0;
+			}
 			return () => {
 				if (alive && subscribed) {
 					subscribed = false;
@@ -4416,14 +4556,10 @@ var STREAM_CONSTRUCTOR = () => {
 			return internal.on(listener);
 		},
 		next(value) {
-			if (alive) {
-				buffer.push(value);
-				internal.flush(value, "next");
-			}
+			if (alive) internal.flush(value, "next");
 		},
 		throw(value) {
 			if (alive) {
-				buffer.push(value);
 				internal.flush(value, "throw");
 				alive = false;
 				success = false;
@@ -4432,7 +4568,6 @@ var STREAM_CONSTRUCTOR = () => {
 		},
 		return(value) {
 			if (alive) {
-				buffer.push(value);
 				internal.flush(value, "return");
 				alive = false;
 				success = true;
@@ -4552,7 +4687,8 @@ var ARRAY_BUFFER_CONSTRUCTOR = (b64) => {
 var SERIALIZED_ARRAY_BUFFER_CONSTRUCTOR = /* @__PURE__ */ ARRAY_BUFFER_CONSTRUCTOR.toString();
 /**
 * An internal class rather than a tagged POJO: identity is checked with
-* `instanceof`, which untrusted input cannot forge (the class is not exported).
+* `instanceof`, which untrusted input cannot forge. The class is exported
+* because bundlers cannot drop an unexported top-level class.
 * The eval-based `deserialize` path still rebuilds a `{__SEROVAL_SEQUENCE__…}`
 * POJO from embedded source - it has no access to this class - so a value read
 * back through `deserialize` is not an instance and, by design, is not treated
@@ -4576,7 +4712,7 @@ function createSequenceFromIterable(source) {
 	let throwsAt = -1;
 	let doneAt = -1;
 	const iterator = source[SYM_ITERATOR]();
-	while (true) try {
+	for (;;) try {
 		const value = iterator.next();
 		values.push(value.value);
 		if (value.done) {
@@ -4591,7 +4727,7 @@ function createSequenceFromIterable(source) {
 	}
 	return createSequence(values, throwsAt, doneAt);
 }
-var createIterator = ITERATOR_CONSTRUCTOR(SYM_ITERATOR);
+var createIterator = /* @__PURE__ */ ITERATOR_CONSTRUCTOR(SYM_ITERATOR);
 function sequenceToIterator(sequence) {
 	return createIterator(sequence);
 }
@@ -4618,7 +4754,8 @@ var SPECIAL_REF_STRING = {
 };
 /**
 * An internal class rather than a tagged POJO: identity is checked with
-* `instanceof`, which untrusted input cannot forge (the class is not exported).
+* `instanceof`, which untrusted input cannot forge. The class is exported
+* because bundlers cannot drop an unexported top-level class.
 *
 * The behavior is intentionally duplicated from `STREAM_CONSTRUCTOR`. That
 * constructor's source is embedded verbatim into the eval-based `deserialize`
@@ -4628,18 +4765,17 @@ var SPECIAL_REF_STRING = {
 * implementations in sync.
 */
 var Stream = class {
-	constructor() {
+	constructor(live) {
 		this.buffer = [];
 		this.listeners = [];
 		this.alive = true;
 		this.success = false;
 		this.count = 0;
+		this.live = live;
 	}
 	flush(value, mode) {
-		for (let x = 0; x < this.count; x++) {
-			var _this$listeners$x;
-			(_this$listeners$x = this.listeners[x]) === null || _this$listeners$x === void 0 || _this$listeners$x[mode](value);
-		}
+		this.live > 1 || this.buffer.push(value);
+		for (let x = 0; x < this.count; x++) this.listeners[x]?.[mode](value);
 	}
 	replay(listener) {
 		for (let x = 0, z = this.buffer.length; x < z; x++) {
@@ -4649,6 +4785,7 @@ var Stream = class {
 		}
 	}
 	on(listener) {
+		if (this.live > 1) throw new Error("Stream consumed");
 		let subscribed = this.alive;
 		let temp = 0;
 		if (subscribed) {
@@ -4657,6 +4794,10 @@ var Stream = class {
 			this.listeners[temp] = listener;
 		}
 		this.replay(listener);
+		if (this.live) {
+			this.live = 2;
+			this.buffer.length = 0;
+		}
 		return () => {
 			if (this.alive && subscribed) {
 				subscribed = false;
@@ -4666,15 +4807,25 @@ var Stream = class {
 			}
 		};
 	}
+	/**
+	* Returns the events of a stream that has ended, without subscribing, so a
+	* live receiver is not consumed. The last value is the `return` or `throw`
+	* value. Returns `undefined` while the stream is open, or when a live
+	* receiver was already consumed and has no events left.
+	* @internal
+	*/
+	endedEvents() {
+		if (this.alive || this.live > 1) return void 0;
+		return {
+			values: this.buffer.slice(),
+			success: this.success
+		};
+	}
 	next(value) {
-		if (this.alive) {
-			this.buffer.push(value);
-			this.flush(value, "next");
-		}
+		if (this.alive) this.flush(value, "next");
 	}
 	throw(value) {
 		if (this.alive) {
-			this.buffer.push(value);
 			this.flush(value, "throw");
 			this.alive = false;
 			this.success = false;
@@ -4683,7 +4834,6 @@ var Stream = class {
 	}
 	return(value) {
 		if (this.alive) {
-			this.buffer.push(value);
 			this.flush(value, "return");
 			this.alive = false;
 			this.success = true;
@@ -4692,46 +4842,12 @@ var Stream = class {
 	}
 };
 function isStream(value) {
-	return value instanceof Stream;
+	return value instanceof Stream || isLiveStream(value);
 }
 function createStream() {
 	return new Stream();
 }
-function createStreamFromAsyncIterable(iterable, cleanups) {
-	const stream = createStream();
-	const iterator = iterable[SYM_ASYNC_ITERATOR]();
-	let cancelled = false;
-	let done = false;
-	cleanups === null || cleanups === void 0 || cleanups.push(() => {
-		if (!(done || cancelled)) {
-			cancelled = true;
-			Promise.resolve().then(() => {
-				var _iterator$return;
-				return (_iterator$return = iterator.return) === null || _iterator$return === void 0 ? void 0 : _iterator$return.call(iterator);
-			}).catch(() => {});
-		}
-	});
-	async function push() {
-		try {
-			while (!cancelled) {
-				const value = await iterator.next();
-				if (cancelled) return;
-				if (value.done) {
-					done = true;
-					stream.return(value.value);
-					break;
-				}
-				stream.next(value.value);
-			}
-		} catch (error) {
-			done = true;
-			if (!cancelled) stream.throw(error);
-		}
-	}
-	push().catch(() => {});
-	return stream;
-}
-var createAsyncIterable = ASYNC_ITERATOR_CONSTRUCTOR(SYM_ASYNC_ITERATOR, PROMISE_CONSTRUCTOR);
+var createAsyncIterable = /* @__PURE__ */ ASYNC_ITERATOR_CONSTRUCTOR(SYM_ASYNC_ITERATOR, PROMISE_CONSTRUCTOR);
 function streamToAsyncIterable(stream) {
 	return createAsyncIterable(stream);
 }
@@ -4742,17 +4858,115 @@ async function promiseToResult(current) {
 		return [0, e];
 	}
 }
-function createBaseParserContext(mode, options) {
-	var _options$compactArray;
+function encodeArrayBuffer$1(current) {
+	const bytes = new Uint8Array(current);
+	if (typeof bytes.toBase64 === "function") return bytes.toBase64();
+	let result = "";
+	for (let i = 0, len = bytes.length; i < len; i++) result += String.fromCharCode(bytes[i]);
+	return btoa(result);
+}
+var MIN_NATIVE_BASE64_LENGTH = 512;
+function encodeArrayBuffer(current) {
+	if (typeof Buffer !== "undefined") return Buffer.from(current).toString("base64");
+	return encodeArrayBuffer$1(current);
+}
+function decodeArrayBuffer(source) {
+	if (source.length < MIN_NATIVE_BASE64_LENGTH || typeof Buffer === "undefined") return ARRAY_BUFFER_CONSTRUCTOR(source);
+	const decoded = atob(source);
+	const buffer = new ArrayBuffer(decoded.length);
+	Buffer.from(buffer).write(decoded, "latin1");
+	return buffer;
+}
+function createPlugin(plugin) {
+	return plugin;
+}
+function dedupePlugins(deduped, plugins) {
+	for (let i = 0, len = plugins.length; i < len; i++) {
+		const current = plugins[i];
+		if (!deduped.has(current)) {
+			deduped.add(current);
+			if (current.extends) dedupePlugins(deduped, current.extends);
+		}
+	}
+}
+var RESOLVED_PLUGINS = /* @__PURE__ */ new WeakMap();
+function matchResolved(resolved, plugins, added) {
+	for (let i = 0, len = plugins.length; i < len; i++) {
+		const current = plugins[i];
+		if (current === resolved[added]) {
+			added++;
+			if (current.extends) {
+				added = matchResolved(resolved, current.extends, added);
+				if (added === -1) return -1;
+			}
+		} else {
+			const index = resolved.indexOf(current);
+			if (index === -1 || index >= added) return -1;
+		}
+	}
+	return added;
+}
+function resolvePlugins(plugins) {
+	if (plugins) {
+		const cached = RESOLVED_PLUGINS.get(plugins);
+		if (cached && matchResolved(cached, plugins, 0) === cached.length) return cached;
+		const deduped = /* @__PURE__ */ new Set();
+		dedupePlugins(deduped, plugins);
+		const resolved = [...deduped];
+		RESOLVED_PLUGINS.set(plugins, resolved);
+		return resolved;
+	}
+}
+/**
+* Returns the plugins that are tested for plain objects. It is the same array
+* when no plugin sets `skipPlainObjects`.
+*/
+function getPlainObjectPlugins(plugins) {
+	if (plugins) {
+		for (let i = 0, len = plugins.length; i < len; i++) if (plugins[i].skipPlainObjects) {
+			const result = plugins.filter((plugin) => !plugin.skipPlainObjects);
+			return result.length ? result : void 0;
+		}
+	}
+	return plugins;
+}
+var REFERENCES_KEY = "__SEROVAL_REFS__";
+var GLOBAL_CONTEXT_R = `self.\$R`;
+function getCrossReferenceHeader(id) {
+	if (id == null) return `${GLOBAL_CONTEXT_R}=${GLOBAL_CONTEXT_R}||[]`;
+	return `(${GLOBAL_CONTEXT_R}=${GLOBAL_CONTEXT_R}||{})["${serializeString(id)}"]=[]`;
+}
+var REFERENCE = /* @__PURE__ */ new Map();
+var INV_REFERENCE = /* @__PURE__ */ new Map();
+function hasReference(id) {
+	return INV_REFERENCE.has(id);
+}
+function getReferenceID(value) {
+	return REFERENCE.get(value);
+}
+function getReference(id) {
+	if (hasReference(id)) return INV_REFERENCE.get(id);
+	throw new SerovalMissingReferenceForIdError(id);
+}
+function createBaseParserContext(options) {
 	return {
 		plugins: options.plugins,
-		mode,
+		plainObjectPlugins: getPlainObjectPlugins(options.plugins),
 		marked: /* @__PURE__ */ new Set(),
-		features: 127 ^ (options.disabledFeatures || 0),
-		refs: options.refs || /* @__PURE__ */ new Map(),
+		features: 127 ^ (options.disabledFeatures ?? 0),
+		refs: options.refs ?? /* @__PURE__ */ new Map(),
 		depthLimit: options.depthLimit || 1e3,
-		compactArrayBufferViews: (_options$compactArray = options.compactArrayBufferViews) !== null && _options$compactArray !== void 0 ? _options$compactArray : false
+		compactArrayBufferViews: options.compactArrayBufferViews ?? false
 	};
+}
+/**
+* Returns the plugins to test for an object. Plain objects, whose prototype is
+* `Object.prototype`, skip the plugins that set `skipPlainObjects`. Checking
+* the prototype as well as `constructor` keeps instances whose prototype has
+* no own `constructor` property from skipping those plugins.
+*/
+function getObjectPlugins(ctx, current, currentClass) {
+	return currentClass === Object && Object.getPrototypeOf(current) === Object.prototype ? ctx.plainObjectPlugins : ctx.plugins;
 }
 /**
 * Ensures that the value (based on an identifier) has been visited by the parser.
@@ -4776,117 +4990,164 @@ function getNodeForIndexedValue(ctx, current) {
 	const registeredId = ctx.refs.get(current);
 	if (registeredId != null) {
 		markParserRef(ctx, registeredId);
-		return {
-			type: 1,
-			value: createIndexedValueNode(registeredId)
-		};
+		return createIndexedValueNode(registeredId);
 	}
-	return {
-		type: 0,
-		value: createIndexForValue(ctx, current)
-	};
+	return createIndexForValue(ctx, current);
 }
 function getReferenceNode(ctx, current) {
 	const indexed = getNodeForIndexedValue(ctx, current);
-	if (indexed.type === 1) return indexed;
-	if (hasReferenceID(current)) return {
-		type: 2,
-		value: createReferenceNode(indexed.value, current)
-	};
-	return indexed;
+	if (typeof indexed !== "number") return indexed;
+	const referenceId = getReferenceID(current);
+	return referenceId === void 0 ? indexed : createReferenceNode(indexed, referenceId);
 }
 /**
 * Parsing methods
 */
 function parseWellKnownSymbol(ctx, current) {
 	const ref = getReferenceNode(ctx, current);
-	if (ref.type !== 0) return ref.value;
-	if (current in INV_SYMBOL_REF) return createWKSymbolNode(ref.value, current);
+	if (typeof ref !== "number") return ref;
+	if (current in INV_SYMBOL_REF) return createWKSymbolNode(ref, current);
 	throw new SerovalUnsupportedTypeError(current);
 }
 function parseSpecialReference(ctx, ref) {
 	const result = getNodeForIndexedValue(ctx, SPECIAL_REFS[ref]);
-	if (result.type === 1) return result.value;
-	return createSerovalNode(26, result.value, ref, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0);
+	if (typeof result !== "number") return result;
+	return createSerovalNode(26, result, ref);
 }
 function parseIteratorFactory(ctx) {
 	const result = getNodeForIndexedValue(ctx, ITERATOR);
-	if (result.type === 1) return result.value;
-	return createSerovalNode(27, result.value, void 0, void 0, void 0, void 0, void 0, void 0, parseWellKnownSymbol(ctx, SYM_ITERATOR), void 0, void 0, void 0);
+	if (typeof result !== "number") return result;
+	return createSerovalNode(27, result, void 0, void 0, void 0, void 0, void 0, void 0, parseWellKnownSymbol(ctx, SYM_ITERATOR));
 }
 function parseAsyncIteratorFactory(ctx) {
 	const result = getNodeForIndexedValue(ctx, ASYNC_ITERATOR);
-	if (result.type === 1) return result.value;
-	return createSerovalNode(29, result.value, void 0, void 0, void 0, void 0, void 0, [parseSpecialReference(ctx, 1), parseWellKnownSymbol(ctx, SYM_ASYNC_ITERATOR)], void 0, void 0, void 0, void 0);
+	if (typeof result !== "number") return result;
+	return createSerovalNode(29, result, void 0, void 0, void 0, void 0, void 0, [parseSpecialReference(ctx, 1), parseWellKnownSymbol(ctx, SYM_ASYNC_ITERATOR)]);
+}
+function getTemporalType(currentClass) {
+	switch (currentClass) {
+		case Temporal.Instant: return 0;
+		case Temporal.Duration: return 1;
+		case Temporal.PlainDate: return 2;
+		case Temporal.PlainDateTime: return 3;
+		case Temporal.PlainMonthDay: return 4;
+		case Temporal.PlainTime: return 5;
+		case Temporal.PlainYearMonth: return 6;
+		case Temporal.ZonedDateTime: return 7;
+		default: return;
+	}
+}
+function getObjectClass(current) {
+	const currentClass = current.constructor;
+	if (currentClass !== void 0 && typeof currentClass !== "function") {
+		const proto = Object.getPrototypeOf(current);
+		return proto === null ? void 0 : proto.constructor;
+	}
+	return currentClass;
+}
+/**
+* Decides how an object is parsed. Shared by the sync, stream and async
+* parsers so the class checks and feature gates live in one place.
+*/
+function getObjectKind(current, currentClass, features) {
+	switch (currentClass) {
+		case Object: return 1;
+		case void 0: return 2;
+		case Date: return 3;
+		case Error:
+		case EvalError:
+		case RangeError:
+		case ReferenceError:
+		case SyntaxError:
+		case TypeError:
+		case URIError: return 4;
+		case Number:
+		case Boolean:
+		case String:
+		case BigInt: return 6;
+		case ArrayBuffer: return 7;
+		case Int8Array:
+		case Int16Array:
+		case Int32Array:
+		case Uint8Array:
+		case Uint16Array:
+		case Uint32Array:
+		case Uint8ClampedArray:
+		case Float32Array:
+		case Float64Array: return 8;
+		case DataView: return 10;
+		case Map: return 11;
+		case Set: return 12;
+	}
+	if (currentClass === Promise || current instanceof Promise) return 13;
+	if (features & 32 && currentClass === RegExp) return 14;
+	if (features & 16 && (currentClass === BigInt64Array || currentClass === BigUint64Array)) return 9;
+	if (features & 1 && typeof AggregateError !== "undefined" && (currentClass === AggregateError || current instanceof AggregateError)) return 5;
+	if (features & 64 && typeof Temporal !== "undefined" && getTemporalType(currentClass) != null) return 15;
+	if (current instanceof Error) return 4;
+	if (SYM_ITERATOR in current || SYM_ASYNC_ITERATOR in current) return 16;
+	return 0;
 }
 function createObjectNode(id, current, empty, record) {
-	return createSerovalNode(empty ? 11 : 10, id, void 0, void 0, void 0, record, void 0, void 0, void 0, void 0, getObjectFlag(current), void 0);
+	return createSerovalNode(empty ? 11 : 10, id, void 0, void 0, void 0, record, void 0, void 0, void 0, void 0, getObjectFlag(current));
 }
-function createMapNode(ctx, id, k, v) {
+/**
+* Gets the sentinel node for a Map. Call it before parsing the entries, so
+* that an outer Map declares the sentinel before any Map inside it uses it.
+*/
+function parseMapSentinel(ctx) {
+	return parseSpecialReference(ctx, 0);
+}
+function createMapNode(id, sentinel, k, v) {
 	return createSerovalNode(8, id, void 0, void 0, void 0, void 0, {
 		k,
 		v
-	}, void 0, parseSpecialReference(ctx, 0), void 0, void 0, void 0);
+	}, void 0, sentinel);
 }
 function createPromiseConstructorNode(ctx, id, resolver) {
-	return createSerovalNode(22, id, resolver, void 0, void 0, void 0, void 0, void 0, parseSpecialReference(ctx, 1), void 0, void 0, void 0);
+	return createSerovalNode(22, id, resolver, void 0, void 0, void 0, void 0, void 0, parseSpecialReference(ctx, 1));
 }
 function getArrayBufferView(ctx, current) {
 	if (!ctx.compactArrayBufferViews) return current;
 	const buffer = new Uint8Array(current.buffer, current.byteOffset, current.byteLength).slice().buffer;
-	const Constructor = current.constructor;
-	return new Constructor(buffer);
-}
-function encodeArrayBuffer(current) {
-	if (typeof Buffer !== "undefined") return Buffer.from(current).toString("base64");
-	const bytes = new Uint8Array(current);
-	if (typeof bytes.toBase64 === "function") return bytes.toBase64();
-	let result = "";
-	for (let i = 0, len = bytes.length; i < len; i++) result += String.fromCharCode(bytes[i]);
-	return btoa(result);
+	return new (current instanceof DataView ? DataView : getTypedArrayConstructor(getTypedArrayName(current)))(buffer);
 }
 function createArrayBufferNode(ctx, id, current) {
-	return createSerovalNode(19, id, encodeArrayBuffer(current), void 0, void 0, void 0, void 0, void 0, parseSpecialReference(ctx, 5), void 0, void 0, void 0);
+	return createSerovalNode(19, id, encodeArrayBuffer(current), void 0, void 0, void 0, void 0, void 0, parseSpecialReference(ctx, 5));
 }
-function createAsyncParserContext(mode, options) {
-	return {
-		base: createBaseParserContext(mode, options),
-		child: void 0
-	};
+function createAsyncParserContext(options) {
+	return { base: createBaseParserContext(options) };
 }
-var AsyncParsePluginContext = class {
-	constructor(_p, depth) {
-		this._p = _p;
-		this.depth = depth;
-	}
-	parse(current) {
-		return parseAsync(this._p, this.depth, current);
-	}
-};
 async function parseItems$1(ctx, depth, current) {
-	const nodes = [];
-	for (let i = 0, len = current.length; i < len; i++) if (i in current) nodes[i] = await parseAsync(ctx, depth, current[i]);
-	else nodes[i] = 0;
+	const len = current.length;
+	const nodes = new Array(len);
+	for (let i = 0, node; i < len; i++) if (i in current) {
+		node = parseValueAsync(ctx, depth, current[i]);
+		nodes[i] = node instanceof Promise ? await node : node;
+	} else nodes[i] = 0;
 	return nodes;
 }
 async function parseArray$1(ctx, depth, id, current) {
 	return createArrayNode(id, current, await parseItems$1(ctx, depth, current));
 }
 async function parseProperties$1(ctx, depth, properties) {
-	const entries = Object.entries(properties);
-	const keyNodes = [];
-	const valueNodes = [];
-	for (let i = 0, len = entries.length; i < len; i++) {
-		keyNodes.push(serializeString(entries[i][0]));
-		valueNodes.push(await parseAsync(ctx, depth, entries[i][1]));
+	const keys = Object.keys(properties);
+	const len = keys.length;
+	const keyNodes = new Array(len);
+	const valueNodes = new Array(len);
+	for (let i = 0, key, node; i < len; i++) {
+		key = keys[i];
+		keyNodes[i] = serializeString(key);
+		node = parseValueAsync(ctx, depth, properties[key]);
+		valueNodes[i] = node instanceof Promise ? await node : node;
 	}
 	if (SYM_ITERATOR in properties) {
 		keyNodes.push(parseWellKnownSymbol(ctx.base, SYM_ITERATOR));
-		valueNodes.push(createIteratorFactoryInstanceNode(parseIteratorFactory(ctx.base), await parseAsync(ctx, depth, createSequenceFromIterable(properties))));
+		valueNodes.push(createIteratorFactoryInstanceNode(28, parseIteratorFactory(ctx.base), await parseAsync(ctx, depth, createSequenceFromIterable(properties))));
 	}
 	if (SYM_ASYNC_ITERATOR in properties) {
 		keyNodes.push(parseWellKnownSymbol(ctx.base, SYM_ASYNC_ITERATOR));
-		valueNodes.push(createAsyncIteratorFactoryInstanceNode(parseAsyncIteratorFactory(ctx.base), await parseAsync(ctx, depth, createStreamFromAsyncIterable(properties))));
+		valueNodes.push(createIteratorFactoryInstanceNode(30, parseAsyncIteratorFactory(ctx.base), await parseAsyncIterable$1(ctx, depth, properties)));
 	}
 	if (SYM_TO_STRING_TAG in properties) {
 		keyNodes.push(parseWellKnownSymbol(ctx.base, SYM_TO_STRING_TAG));
@@ -4907,166 +5168,183 @@ async function parsePlainObject$1(ctx, depth, id, current, empty) {
 async function parseBoxed$1(ctx, depth, id, current) {
 	return createBoxedNode(id, await parseAsync(ctx, depth, current.valueOf()));
 }
-async function parseTypedArray$1(ctx, depth, id, current) {
+async function parseView$1(ctx, depth, type, id, current) {
 	current = getArrayBufferView(ctx.base, current);
-	return createTypedArrayNode(id, current, await parseAsync(ctx, depth, current.buffer));
+	return createViewNode(type, id, current, await parseAsync(ctx, depth, current.buffer));
 }
-async function parseBigIntTypedArray$1(ctx, depth, id, current) {
-	current = getArrayBufferView(ctx.base, current);
-	return createBigIntTypedArrayNode(id, current, await parseAsync(ctx, depth, current.buffer));
-}
-async function parseDataView$1(ctx, depth, id, current) {
-	current = getArrayBufferView(ctx.base, current);
-	return createDataViewNode(id, current, await parseAsync(ctx, depth, current.buffer));
-}
-async function parseError$1(ctx, depth, id, current) {
+async function parseError$1(ctx, depth, type, id, current) {
 	const options = getErrorOptions(current, ctx.base.features);
-	return createErrorNode(id, current, options ? await parseProperties$1(ctx, depth, options) : void 0);
-}
-async function parseAggregateError$1(ctx, depth, id, current) {
-	const options = getErrorOptions(current, ctx.base.features);
-	return createAggregateErrorNode(id, current, options ? await parseProperties$1(ctx, depth, options) : void 0);
+	return createErrorNode(type, id, current, options ? await parseProperties$1(ctx, depth, options) : void 0);
 }
 async function parseMap$1(ctx, depth, id, current) {
-	const keyNodes = [];
-	const valueNodes = [];
+	const sentinel = parseMapSentinel(ctx.base);
+	const keyNodes = new Array(current.size);
+	const valueNodes = new Array(current.size);
+	let node;
+	let i = 0;
 	for (const [key, value] of current.entries()) {
-		keyNodes.push(await parseAsync(ctx, depth, key));
-		valueNodes.push(await parseAsync(ctx, depth, value));
+		node = parseValueAsync(ctx, depth, key);
+		keyNodes[i] = node instanceof Promise ? await node : node;
+		node = parseValueAsync(ctx, depth, value);
+		valueNodes[i] = node instanceof Promise ? await node : node;
+		i++;
 	}
-	return createMapNode(ctx.base, id, keyNodes, valueNodes);
+	return createMapNode(id, sentinel, keyNodes, valueNodes);
 }
 async function parseSet$1(ctx, depth, id, current) {
-	const items = [];
-	for (const item of current.keys()) items.push(await parseAsync(ctx, depth, item));
+	const items = new Array(current.size);
+	let node;
+	let i = 0;
+	for (const item of current.keys()) {
+		node = parseValueAsync(ctx, depth, item);
+		items[i++] = node instanceof Promise ? await node : node;
+	}
 	return createSetNode(id, items);
 }
-async function parsePlugin$1(ctx, depth, id, current) {
-	const currentPlugins = ctx.base.plugins;
+async function parsePlugin$1(ctx, depth, id, current, currentPlugins) {
 	if (currentPlugins) for (let i = 0, len = currentPlugins.length; i < len; i++) {
 		const plugin = currentPlugins[i];
-		if (plugin.parse.async && plugin.test(current)) return createPluginNode(id, plugin.tag, await plugin.parse.async(current, new AsyncParsePluginContext(ctx, depth), { id }));
+		if (plugin.parse.async && plugin.test(current)) return createPluginNode(id, plugin.tag, await plugin.parse.async(current, {
+			parse: (value) => parseAsync(ctx, depth, value),
+			parseStreamSource(source) {
+				if (depth >= ctx.base.depthLimit) throw new SerovalDepthLimitError(ctx.base.depthLimit);
+				return parseAsyncIterable$1(ctx, depth + 1, source);
+			}
+		}, { id }));
 	}
 }
 async function parsePromise$1(ctx, depth, id, current) {
 	const [status, result] = await promiseToResult(current);
-	return createSerovalNode(12, id, status, void 0, void 0, void 0, void 0, void 0, await parseAsync(ctx, depth, result), void 0, void 0, void 0);
+	return createSerovalNode(12, id, status, void 0, void 0, void 0, void 0, void 0, await parseAsync(ctx, depth, result));
 }
 function parseStreamHandle(depth, id, current, resolve, reject) {
 	const sequence = [];
-	const cleanup = current.on({
-		next: (value) => {
-			markParserRef(this.base, id);
-			parseAsync(this, depth, value).then((data) => {
-				sequence.push(createStreamNextNode(id, data));
-			}, (data) => {
-				reject(data);
-				cleanup();
-			});
-		},
-		throw: (value) => {
-			markParserRef(this.base, id);
-			parseAsync(this, depth, value).then((data) => {
-				sequence.push(createStreamThrowNode(id, data));
-				resolve(sequence);
-				cleanup();
-			}, (data) => {
-				reject(data);
-				cleanup();
-			});
-		},
-		return: (value) => {
-			markParserRef(this.base, id);
-			parseAsync(this, depth, value).then((data) => {
-				sequence.push(createStreamReturnNode(id, data));
-				resolve(sequence);
-				cleanup();
-			}, (data) => {
-				reject(data);
-				cleanup();
-			});
+	let unparsed = 0;
+	let ended = false;
+	let settled = false;
+	const fail = (error) => {
+		if (!settled) {
+			settled = true;
+			try {
+				cleanup(error);
+			} catch {}
+			reject(error);
 		}
-	});
+	};
+	const handle = (type) => (value, accept) => {
+		if (settled) return;
+		markParserRef(this.base, id);
+		const slot = sequence.push(void 0) - 1;
+		unparsed++;
+		if (type !== 32) ended = true;
+		parseAsync(this, depth, value).then((data) => {
+			if (!settled) {
+				sequence[slot] = createStreamEventNode(type, id, data);
+				unparsed--;
+				accept?.();
+				if (ended && unparsed === 0) {
+					settled = true;
+					try {
+						cleanup();
+					} catch (error) {
+						reject(error);
+						return;
+					}
+					resolve(sequence);
+				}
+			}
+		}, fail);
+	};
+	const listener = {
+		next: handle(32),
+		throw: handle(33),
+		return: handle(34)
+	};
+	const cleanup = isLiveStream(current) ? current.pump(listener) : current.on(listener);
 }
 async function parseStream$1(ctx, depth, id, current) {
 	return createStreamConstructorNode(id, parseSpecialReference(ctx.base, 4), await new Promise(parseStreamHandle.bind(ctx, depth, id, current)));
 }
+/**
+* Collects an async iterable into a replay node, one value at a time.
+*/
+async function parseAsyncIterable$1(ctx, depth, current) {
+	const id = createIndexForValue(ctx.base, {});
+	const reference = parseSpecialReference(ctx.base, 4);
+	const iterator = current[SYM_ASYNC_ITERATOR]();
+	const sequence = [];
+	for (;;) {
+		let result;
+		try {
+			result = await iterator.next();
+		} catch (error) {
+			markParserRef(ctx.base, id);
+			sequence.push(createStreamEventNode(33, id, await parseAsync(ctx, depth, error)));
+			break;
+		}
+		markParserRef(ctx.base, id);
+		let parsed;
+		try {
+			parsed = await parseAsync(ctx, depth, result.value);
+		} catch (error) {
+			Promise.resolve().then(() => iterator.return?.()).catch(() => {});
+			throw error;
+		}
+		sequence.push(createStreamEventNode(result.done ? 34 : 32, id, parsed));
+		if (result.done) break;
+	}
+	return createStreamConstructorNode(id, reference, sequence);
+}
 async function parseSequence$1(ctx, depth, id, current) {
-	const nodes = [];
-	for (let i = 0, len = current.v.length; i < len; i++) nodes[i] = await parseAsync(ctx, depth, current.v[i]);
+	const len = current.v.length;
+	const nodes = new Array(len);
+	for (let i = 0, node; i < len; i++) {
+		node = parseValueAsync(ctx, depth, current.v[i]);
+		nodes[i] = node instanceof Promise ? await node : node;
+	}
 	return createSequenceNode(id, nodes, current.t, current.d);
 }
 async function parseObjectAsync(ctx, depth, id, current) {
 	if (Array.isArray(current)) return parseArray$1(ctx, depth, id, current);
 	if (isStream(current)) return parseStream$1(ctx, depth, id, current);
 	if (isSequence(current)) return parseSequence$1(ctx, depth, id, current);
-	let currentClass = current.constructor;
-	if (currentClass !== void 0 && typeof currentClass !== "function") {
-		const proto = Object.getPrototypeOf(current);
-		currentClass = proto === null ? void 0 : proto.constructor;
-	}
+	const currentClass = getObjectClass(current);
 	if (currentClass === OpaqueReference) return parseAsync(ctx, depth, current.replacement);
-	const parsed = await parsePlugin$1(ctx, depth, id, current);
+	const parsed = await parsePlugin$1(ctx, depth, id, current, getObjectPlugins(ctx.base, current, currentClass));
 	if (parsed) return parsed;
-	switch (currentClass) {
-		case Object: return parsePlainObject$1(ctx, depth, id, current, false);
-		case void 0: return parsePlainObject$1(ctx, depth, id, current, true);
-		case Date: return createDateNode(id, current);
-		case Error:
-		case EvalError:
-		case RangeError:
-		case ReferenceError:
-		case SyntaxError:
-		case TypeError:
-		case URIError: return parseError$1(ctx, depth, id, current);
-		case Number:
-		case Boolean:
-		case String:
-		case BigInt: return parseBoxed$1(ctx, depth, id, current);
-		case ArrayBuffer: return createArrayBufferNode(ctx.base, id, current);
-		case Int8Array:
-		case Int16Array:
-		case Int32Array:
-		case Uint8Array:
-		case Uint16Array:
-		case Uint32Array:
-		case Uint8ClampedArray:
-		case Float32Array:
-		case Float64Array: return parseTypedArray$1(ctx, depth, id, current);
-		case DataView: return parseDataView$1(ctx, depth, id, current);
-		case Map: return parseMap$1(ctx, depth, id, current);
-		case Set: return parseSet$1(ctx, depth, id, current);
+	if (currentClass === Object) return parsePlainObject$1(ctx, depth, id, current, false);
+	switch (getObjectKind(current, currentClass, ctx.base.features)) {
+		case 2: return parsePlainObject$1(ctx, depth, id, current, true);
+		case 3: return createDateNode(id, current);
+		case 4: return parseError$1(ctx, depth, 13, id, current);
+		case 5: return parseError$1(ctx, depth, 14, id, current);
+		case 6: return parseBoxed$1(ctx, depth, id, current);
+		case 7: return createArrayBufferNode(ctx.base, id, current);
+		case 8: return parseView$1(ctx, depth, 15, id, current);
+		case 9: return parseView$1(ctx, depth, 16, id, current);
+		case 10: return parseView$1(ctx, depth, 20, id, current);
+		case 11: return parseMap$1(ctx, depth, id, current);
+		case 12: return parseSet$1(ctx, depth, id, current);
+		case 13: return parsePromise$1(ctx, depth, id, current);
+		case 14: return createRegExpNode(id, current);
+		case 15: return createTemporalNode(id, getTemporalType(currentClass), current);
+		case 16: return parsePlainObject$1(ctx, depth, id, current, !!currentClass);
+		default: throw new SerovalUnsupportedTypeError(current);
 	}
-	if (currentClass === Promise || current instanceof Promise) return parsePromise$1(ctx, depth, id, current);
-	const currentFeatures = ctx.base.features;
-	if (currentFeatures & 32 && currentClass === RegExp) return createRegExpNode(id, current);
-	if (currentFeatures & 16) switch (currentClass) {
-		case BigInt64Array:
-		case BigUint64Array: return parseBigIntTypedArray$1(ctx, depth, id, current);
-	}
-	if (currentFeatures & 1 && typeof AggregateError !== "undefined" && (currentClass === AggregateError || current instanceof AggregateError)) return parseAggregateError$1(ctx, depth, id, current);
-	if (currentFeatures & 64 && typeof Temporal !== "undefined") switch (currentClass) {
-		case Temporal.Instant: return createTemporalNode(id, 0, current);
-		case Temporal.Duration: return createTemporalNode(id, 1, current);
-		case Temporal.PlainDate: return createTemporalNode(id, 2, current);
-		case Temporal.PlainDateTime: return createTemporalNode(id, 3, current);
-		case Temporal.PlainMonthDay: return createTemporalNode(id, 4, current);
-		case Temporal.PlainTime: return createTemporalNode(id, 5, current);
-		case Temporal.PlainYearMonth: return createTemporalNode(id, 6, current);
-		case Temporal.ZonedDateTime: return createTemporalNode(id, 7, current);
-	}
-	if (current instanceof Error) return parseError$1(ctx, depth, id, current);
-	if (SYM_ITERATOR in current || SYM_ASYNC_ITERATOR in current) return parsePlainObject$1(ctx, depth, id, current, !!currentClass);
-	throw new SerovalUnsupportedTypeError(current);
 }
 async function parseFunctionAsync(ctx, depth, current) {
 	const ref = getReferenceNode(ctx.base, current);
-	if (ref.type !== 0) return ref.value;
-	const plugin = await parsePlugin$1(ctx, depth, ref.value, current);
+	if (typeof ref !== "number") return ref;
+	const plugin = await parsePlugin$1(ctx, depth, ref, current, ctx.base.plugins);
 	if (plugin) return plugin;
 	throw new SerovalUnsupportedTypeError(current);
 }
-async function parseAsync(ctx, depth, current) {
+/**
+* Parses primitives and already-seen values synchronously; only objects and
+* functions come back as a Promise. Errors are thrown synchronously, which
+* an async caller turns into a rejection as before.
+*/
+function parseValueAsync(ctx, depth, current) {
 	if (depth >= ctx.base.depthLimit) throw new SerovalDepthLimitError(ctx.base.depthLimit);
 	switch (typeof current) {
 		case "boolean": return current ? TRUE_NODE : FALSE_NODE;
@@ -5077,7 +5355,7 @@ async function parseAsync(ctx, depth, current) {
 		case "object":
 			if (current) {
 				const ref = getReferenceNode(ctx.base, current);
-				return ref.type === 0 ? await parseObjectAsync(ctx, depth + 1, ref.value, current) : ref.value;
+				return typeof ref === "number" ? parseObjectAsync(ctx, depth + 1, ref, current) : ref;
 			}
 			return NULL_NODE;
 		case "symbol": return parseWellKnownSymbol(ctx.base, current);
@@ -5085,46 +5363,14 @@ async function parseAsync(ctx, depth, current) {
 		default: throw new SerovalUnsupportedTypeError(current);
 	}
 }
+async function parseAsync(ctx, depth, current) {
+	return await parseValueAsync(ctx, depth, current);
+}
 async function parseTopAsync(ctx, current) {
 	try {
 		return await parseAsync(ctx, 0, current);
 	} catch (error) {
 		throw error instanceof SerovalParserError ? error : new SerovalParserError(error);
-	}
-}
-function createPlugin(plugin) {
-	return plugin;
-}
-function dedupePlugins(deduped, plugins) {
-	for (let i = 0, len = plugins.length; i < len; i++) {
-		const current = plugins[i];
-		if (!deduped.has(current)) {
-			deduped.add(current);
-			if (current.extends) dedupePlugins(deduped, current.extends);
-		}
-	}
-}
-function resolvePlugins(plugins) {
-	if (plugins) {
-		const deduped = /* @__PURE__ */ new Set();
-		dedupePlugins(deduped, plugins);
-		return [...deduped];
-	}
-}
-function getTypedArrayConstructor(name) {
-	switch (name) {
-		case "Int8Array": return Int8Array;
-		case "Int16Array": return Int16Array;
-		case "Int32Array": return Int32Array;
-		case "Uint8Array": return Uint8Array;
-		case "Uint16Array": return Uint16Array;
-		case "Uint32Array": return Uint32Array;
-		case "Uint8ClampedArray": return Uint8ClampedArray;
-		case "Float32Array": return Float32Array;
-		case "Float64Array": return Float64Array;
-		case "BigInt64Array": return BigInt64Array;
-		case "BigUint64Array": return BigUint64Array;
-		default: throw new SerovalUnknownTypedArrayError(name);
 	}
 }
 function isValidKey(key) {
@@ -5149,7 +5395,6 @@ function isValidSymbol(symbol) {
 	}
 }
 var DEFAULT_MAX_BASE64_LENGTH = 1e6;
-var MIN_NATIVE_BASE64_LENGTH = 512;
 var MAX_BIGINT_LENGTH = 1e4;
 var MAX_REGEXP_SOURCE_LENGTH = 2e4;
 function applyObjectFlag(obj, flag) {
@@ -5161,60 +5406,43 @@ function applyObjectFlag(obj, flag) {
 	}
 }
 var DEFAULT_DEPTH_LIMIT = 1e3;
-function createBaseDeserializerContext(mode, options) {
-	var _options$maxBase64Len, _options$features;
-	const maxBase64Length = (_options$maxBase64Len = options.maxBase64Length) !== null && _options$maxBase64Len !== void 0 ? _options$maxBase64Len : DEFAULT_MAX_BASE64_LENGTH;
+function createBaseDeserializerContext(options) {
+	const maxBase64Length = options.maxBase64Length ?? DEFAULT_MAX_BASE64_LENGTH;
 	if (!Number.isSafeInteger(maxBase64Length) || maxBase64Length < 0) throw new RangeError("maxBase64Length must be a non-negative safe integer");
-	const refs = options.refs || /* @__PURE__ */ new Map();
+	const refs = options.refs ?? /* @__PURE__ */ new Map();
 	if (!("types" in refs)) Object.assign(refs, { types: /* @__PURE__ */ new Map() });
 	return {
-		mode,
 		plugins: options.plugins,
 		refs,
-		features: (_options$features = options.features) !== null && _options$features !== void 0 ? _options$features : 127 ^ (options.disabledFeatures || 0),
+		features: options.features ?? 127 ^ (options.disabledFeatures ?? 0),
 		depthLimit: options.depthLimit || DEFAULT_DEPTH_LIMIT,
 		maxBase64Length
 	};
 }
 function createVanillaDeserializerContext(options) {
 	return {
-		mode: 1,
-		base: createBaseDeserializerContext(1, options),
-		child: void 0,
-		state: { marked: new Set(options.markedRefs) }
+		base: createBaseDeserializerContext(options),
+		marked: new Set(options.markedRefs)
 	};
 }
-var DeserializePluginContext = class {
-	constructor(_p, depth) {
-		this._p = _p;
-		this.depth = depth;
-	}
-	deserialize(node) {
-		return deserialize$1(this._p, this.depth, node);
-	}
-};
 function guardIndexedValue(ctx, id) {
-	if (id < 0 || !Number.isFinite(id) || !Number.isInteger(id)) throw new SerovalMalformedNodeError({
+	const node = {
 		t: 4,
 		i: id
-	});
-	if (ctx.refs.has(id)) throw new Error("Conflicted ref id: " + id);
+	};
+	if (id < 0 || !Number.isInteger(id)) throw new SerovalMalformedNodeError(node);
+	if (ctx.refs.has(id)) throw new SerovalConflictedNodeIdError(node);
 }
 function isThennable(value) {
 	return !!value && (typeof value === "object" || typeof value === "function") && "then" in value && typeof value.then === "function";
 }
-function assignIndexedValueVanilla(ctx, id, value) {
-	guardIndexedValue(ctx.base, id);
-	if (ctx.state.marked.has(id)) ctx.base.refs.set(id, value);
-	return value;
-}
-function assignIndexedValueCross(ctx, id, value) {
-	guardIndexedValue(ctx.base, id);
-	ctx.base.refs.set(id, value);
-	return value;
-}
+var ignoreRejection = () => {};
 function assignIndexedValue$1(ctx, id, value) {
-	return ctx.mode === 1 ? assignIndexedValueVanilla(ctx, id, value) : assignIndexedValueCross(ctx, id, value);
+	guardIndexedValue(ctx.base, id);
+	if (value instanceof Promise) value.catch(ignoreRejection);
+	const marked = ctx.marked;
+	if (!marked || marked.has(id)) ctx.base.refs.set(id, value);
+	return value;
 }
 function deserializeKnownValue(node, record, key) {
 	if (Object.hasOwn(record, key)) return record[key];
@@ -5272,7 +5500,8 @@ function deserializeProperties(ctx, depth, node, result) {
 	const keys = node.k;
 	validateNodeList(node, keys);
 	validateNodeList(node, node.v);
-	if (keys.length > 0) for (let i = 0, vals = node.v, len = keys.length; i < len; i++) assignProperty(ctx, depth, result, keys[i], vals[i]);
+	const len = keys.length;
+	if (len > 0) for (let i = 0, vals = node.v; i < len; i++) assignProperty(ctx, depth, result, keys[i], vals[i]);
 	return result;
 }
 function deserializeObject(ctx, depth, node) {
@@ -5286,35 +5515,8 @@ function deserializeDate(ctx, node) {
 }
 function deserializeTemporal(ctx, node) {
 	if (!(ctx.base.features & 64)) throw new SerovalUnsupportedNodeError(node);
-	let value;
-	switch (node.c) {
-		case 0:
-			value = Temporal.Instant.from(node.s);
-			break;
-		case 1:
-			value = Temporal.Duration.from(node.s);
-			break;
-		case 2:
-			value = Temporal.PlainDate.from(node.s);
-			break;
-		case 3:
-			value = Temporal.PlainDateTime.from(node.s);
-			break;
-		case 4:
-			value = Temporal.PlainMonthDay.from(node.s);
-			break;
-		case 5:
-			value = Temporal.PlainTime.from(node.s);
-			break;
-		case 6:
-			value = Temporal.PlainYearMonth.from(node.s);
-			break;
-		case 7:
-			value = Temporal.ZonedDateTime.from(node.s);
-			break;
-		default: throw new SerovalMalformedNodeError(node);
-	}
-	return assignIndexedValue$1(ctx, node.i, value);
+	const construct = Temporal[deserializeKnownValue(node, TEMPORAL_TYPE_NAME, node.c)];
+	return assignIndexedValue$1(ctx, node.i, construct.from(node.s));
 }
 function deserializeRegExp(ctx, node) {
 	if (ctx.base.features & 32) {
@@ -5340,32 +5542,15 @@ function deserializeMap(ctx, depth, node) {
 function deserializeArrayBuffer(ctx, node) {
 	if (typeof node.s !== "string") throw new SerovalMalformedNodeError(node);
 	if (node.s.length > ctx.base.maxBase64Length) throw new RangeError("ArrayBuffer exceeds maxBase64Length (" + ctx.base.maxBase64Length + ")");
-	const source = deserializeString(node.s);
-	let buffer;
-	if (source.length < MIN_NATIVE_BASE64_LENGTH || typeof Buffer === "undefined") buffer = ARRAY_BUFFER_CONSTRUCTOR(source);
-	else {
-		const decoded = atob(source);
-		buffer = new ArrayBuffer(decoded.length);
-		Buffer.from(buffer).write(decoded, "latin1");
-	}
+	const buffer = decodeArrayBuffer(deserializeString(node.s));
 	return assignIndexedValue$1(ctx, node.i, buffer);
 }
-function deserializeTypedArray(ctx, depth, node) {
-	var _node$b;
-	const construct = getTypedArrayConstructor(node.c);
+function deserializeView(ctx, depth, node, construct) {
 	const source = deserialize$1(ctx, depth, node.f);
 	if (!(source instanceof ArrayBuffer)) throw new SerovalMalformedNodeError(node);
-	const offset = (_node$b = node.b) !== null && _node$b !== void 0 ? _node$b : 0;
+	const offset = node.b ?? 0;
 	if (offset < 0 || offset > source.byteLength) throw new SerovalMalformedNodeError(node);
-	return assignIndexedValue$1(ctx, node.i, new construct(source, offset, node.l));
-}
-function deserializeDataView(ctx, depth, node) {
-	var _node$b2;
-	const source = deserialize$1(ctx, depth, node.f);
-	if (!(source instanceof ArrayBuffer)) throw new SerovalMalformedNodeError(node);
-	const offset = (_node$b2 = node.b) !== null && _node$b2 !== void 0 ? _node$b2 : 0;
-	if (offset < 0 || offset > source.byteLength) throw new SerovalMalformedNodeError(node);
-	return assignIndexedValue$1(ctx, node.i, new DataView(source, offset, node.l));
+	return assignIndexedValue$1(ctx, node.i, construct ? new construct(source, offset, node.l) : new DataView(source, offset, node.l));
 }
 function deserializeDictionary(ctx, depth, node, result) {
 	if (node.p) {
@@ -5399,7 +5584,7 @@ function deserializePlugin(ctx, depth, node) {
 		const tag = deserializeString(node.c);
 		for (let i = 0, len = currentPlugins.length; i < len; i++) {
 			const plugin = currentPlugins[i];
-			if (plugin.tag === tag) return assignIndexedValue$1(ctx, node.i, plugin.deserialize(node.s, new DeserializePluginContext(ctx, depth), { id: node.i }));
+			if (plugin.tag === tag) return assignIndexedValue$1(ctx, node.i, plugin.deserialize(node.s, { deserialize: (current) => deserialize$1(ctx, depth, current) }, { id: node.i }));
 		}
 	}
 	throw new SerovalMissingPluginError(node.c);
@@ -5407,6 +5592,7 @@ function deserializePlugin(ctx, depth, node) {
 function deserializePromiseConstructor(ctx, node) {
 	const value = assignIndexedValue$1(ctx, node.i, assignIndexedValue$1(ctx, node.s, PROMISE_CONSTRUCTOR()).p);
 	assignNodeType(ctx, node.s, 22);
+	ctx.base.pending?.add(node.s);
 	return value;
 }
 function deserializePromiseFulfill(ctx, depth, node) {
@@ -5417,6 +5603,7 @@ function deserializePromiseFulfill(ctx, depth, node) {
 		if (isThennable(deserialized)) throw new SerovalMalformedNodeError(node.a[1]);
 		if (node.t === 23) deferred.s(deserialized);
 		else deferred.f(deserialized);
+		ctx.base.pending?.delete(node.i);
 		return;
 	}
 	throw new SerovalMissingInstanceError("Promise");
@@ -5434,37 +5621,21 @@ function deserializeAsyncIteratorFactoryInstance(ctx, depth, node) {
 	return streamToAsyncIterable(source);
 }
 function deserializeStreamConstructor(ctx, depth, node) {
-	const result = assignIndexedValue$1(ctx, node.i, createStream());
+	const result = assignIndexedValue$1(ctx, node.i, new Stream(node.l === 1 ? 1 : void 0));
 	assignNodeType(ctx, node.i, 31);
+	ctx.base.pending?.add(node.i);
 	const items = node.a;
 	validateNodeList(node, items);
 	const len = items.length;
 	if (len) for (let i = 0; i < len; i++) deserialize$1(ctx, depth, items[i]);
 	return result;
 }
-function deserializeStreamNext(ctx, depth, node) {
+function deserializeStreamCall(ctx, depth, node, method) {
 	const deferred = ctx.base.refs.get(node.i);
 	if (deferred) {
 		validateNodeType(ctx, node, node.i, 31);
-		deferred.next(deserialize$1(ctx, depth, node.f));
-		return;
-	}
-	throw new SerovalMissingInstanceError("Stream");
-}
-function deserializeStreamThrow(ctx, depth, node) {
-	const deferred = ctx.base.refs.get(node.i);
-	if (deferred) {
-		validateNodeType(ctx, node, node.i, 31);
-		deferred.throw(deserialize$1(ctx, depth, node.f));
-		return;
-	}
-	throw new SerovalMissingInstanceError("Stream");
-}
-function deserializeStreamReturn(ctx, depth, node) {
-	const deferred = ctx.base.refs.get(node.i);
-	if (deferred) {
-		validateNodeType(ctx, node, node.i, 31);
-		deferred.return(deserialize$1(ctx, depth, node.f));
+		deferred[method](deserialize$1(ctx, depth, node.f));
+		if (method !== "next") ctx.base.pending?.delete(node.i);
 		return;
 	}
 	throw new SerovalMissingInstanceError("Stream");
@@ -5483,6 +5654,7 @@ function deserializeSequence(ctx, depth, node) {
 	const size = node.a.length;
 	if (!(isSequenceIndex(node.s, size) && isSequenceIndex(node.l, size))) throw new SerovalMalformedNodeError(node);
 	const result = assignIndexedValue$1(ctx, node.i, createSequence([], node.s, node.l));
+	assignNodeType(ctx, node.i, 35);
 	for (let i = 0; i < size; i++) result.v[i] = deserialize$1(ctx, depth, node.a[i]);
 	return result;
 }
@@ -5507,8 +5679,8 @@ function deserialize$1(ctx, depth, node) {
 		case 8: return deserializeMap(ctx, depth, node);
 		case 19: return deserializeArrayBuffer(ctx, node);
 		case 16:
-		case 15: return deserializeTypedArray(ctx, depth, node);
-		case 20: return deserializeDataView(ctx, depth, node);
+		case 15: return deserializeView(ctx, depth, node, getTypedArrayConstructor(node.c));
+		case 20: return deserializeView(ctx, depth, node);
 		case 14: return deserializeAggregateError(ctx, depth, node);
 		case 13: return deserializeError(ctx, depth, node);
 		case 12: return deserializePromise(ctx, depth, node);
@@ -5521,9 +5693,9 @@ function deserialize$1(ctx, depth, node) {
 		case 28: return deserializeIteratorFactoryInstance(ctx, depth, node);
 		case 30: return deserializeAsyncIteratorFactoryInstance(ctx, depth, node);
 		case 31: return deserializeStreamConstructor(ctx, depth, node);
-		case 32: return deserializeStreamNext(ctx, depth, node);
-		case 33: return deserializeStreamThrow(ctx, depth, node);
-		case 34: return deserializeStreamReturn(ctx, depth, node);
+		case 32: return deserializeStreamCall(ctx, depth, node, "next");
+		case 33: return deserializeStreamCall(ctx, depth, node, "throw");
+		case 34: return deserializeStreamCall(ctx, depth, node, "return");
 		case 27: return deserializeIteratorFactory(ctx, depth, node);
 		case 29: return deserializeAsyncIteratorFactory(ctx, depth, node);
 		case 35: return deserializeSequence(ctx, depth, node);
@@ -5539,8 +5711,7 @@ function deserializeTop(ctx, node) {
 	}
 }
 var RETURN = () => T;
-var SERIALIZED_RETURN = /* @__PURE__ */ RETURN.toString();
-var IS_MODERN = /* @__PURE__ */ /=>/.test(SERIALIZED_RETURN);
+var IS_MODERN = /* @__PURE__ */ (/* @__PURE__ */ RETURN.toString()).includes("=>");
 function createFunction(parameters, body) {
 	if (IS_MODERN) return (parameters.length === 1 ? parameters[0] : "(" + parameters.join(",") + ")") + "=>" + (body.startsWith("{") ? "(" + body + ")" : body);
 	return "function(" + parameters.join(",") + "){return " + body + "}";
@@ -5564,10 +5735,13 @@ function getIdentifier(index) {
 	}
 	return ref;
 }
-var IDENTIFIER_CHECK = /^[$A-Z_][0-9A-Z_$]*$/i;
 function isValidIdentifier(name) {
-	const char = name[0];
-	return (char === "$" || char === "_" || char >= "A" && char <= "Z" || char >= "a" && char <= "z") && IDENTIFIER_CHECK.test(name);
+	const len = name.length;
+	for (let i = 0; i < len; i++) {
+		const code = name.charCodeAt(i);
+		if (!(code >= 97 && code <= 122 || code >= 65 && code <= 90 || code >= 48 && code <= 57 && i > 0 || code === 95 || code === 36)) return false;
+	}
+	return len > 0;
 }
 function getAssignmentExpression(assignment) {
 	switch (assignment.t) {
@@ -5578,51 +5752,32 @@ function getAssignmentExpression(assignment) {
 		case 4: return "Object.defineProperty(" + assignment.s + ",\"__proto__\",{value:" + assignment.k + ",configurable:!0,enumerable:!0,writable:!0})";
 	}
 }
-function mergeAssignments(assignments) {
-	const newAssignments = [];
-	let current = assignments[0];
-	for (let i = 1, len = assignments.length, item, prev = current; i < len; i++) {
-		item = assignments[i];
-		if (item.t === 0 && item.v === prev.v) current = {
-			t: 0,
-			s: item.s,
-			k: void 0,
-			v: getAssignmentExpression(current)
-		};
-		else if (item.t === 2 && item.s === prev.s) current = {
-			t: 2,
-			s: getAssignmentExpression(current),
-			k: item.k,
-			v: item.v
-		};
-		else if (item.t === 1 && item.s === prev.s) current = {
-			t: 1,
-			s: getAssignmentExpression(current),
-			k: void 0,
-			v: item.v
-		};
-		else if (item.t === 3 && item.s === prev.s) current = {
-			t: 3,
-			s: getAssignmentExpression(current),
-			k: item.k,
-			v: void 0
-		};
-		else {
-			newAssignments.push(current);
-			current = item;
-		}
-		prev = item;
-	}
-	newAssignments.push(current);
-	return newAssignments;
-}
+var MAX_ASSIGNMENT_CHAIN_LENGTH = 100;
 function resolveAssignments(assignments) {
-	if (assignments.length) {
-		let result = "";
-		const merged = mergeAssignments(assignments);
-		for (let i = 0, len = merged.length; i < len; i++) result += getAssignmentExpression(merged[i]) + ",";
-		return result;
+	if (!assignments.length) return void 0;
+	let previous = assignments[0];
+	let expression = getAssignmentExpression(previous);
+	let result = "";
+	let chainLength = 1;
+	for (let index = 1, length = assignments.length; index < length; index++) {
+		const assignment = assignments[index];
+		if (chainLength === MAX_ASSIGNMENT_CHAIN_LENGTH) {
+			result += expression + ",";
+			expression = getAssignmentExpression(assignment);
+			chainLength = 0;
+		} else if (assignment.t === 0 && previous.t === 0 && assignment.v === previous.v) expression = assignment.s + "=" + expression;
+		else if (assignment.t === 2 && previous.t === 2 && assignment.s === previous.s) expression += ".set(" + assignment.k + "," + assignment.v + ")";
+		else if (assignment.t === 1 && previous.t === 1 && assignment.s === previous.s) expression += ".add(" + assignment.v + ")";
+		else if (assignment.t === 3 && previous.t === 2 && assignment.s === previous.s) expression += ".delete(" + assignment.k + ")";
+		else {
+			result += expression + ",";
+			expression = getAssignmentExpression(assignment);
+			chainLength = 0;
+		}
+		chainLength++;
+		previous = assignment;
 	}
+	return result + expression + ",";
 }
 var NULL_CONSTRUCTOR = "Object.create(null)";
 var SET_CONSTRUCTOR = "new Set";
@@ -5640,28 +5795,20 @@ function createBaseSerializerContext(mode, options) {
 		mode,
 		plugins: options.plugins,
 		features: options.features,
-		marked: new Set(options.markedRefs),
+		marked: Array.isArray(options.markedRefs) ? new Set(options.markedRefs) : options.markedRefs,
 		stack: [],
 		flags: [],
-		assignments: []
+		assignments: [],
+		assignAll: mode === 2 && !options.assignSharedRefsOnly
 	};
 }
 function createCrossSerializerContext(options) {
 	return {
 		mode: 2,
 		base: createBaseSerializerContext(2, options),
-		state: options,
-		child: void 0
+		state: options
 	};
 }
-var SerializePluginContext = class {
-	constructor(_p) {
-		this._p = _p;
-	}
-	serialize(node) {
-		return serialize$1(this._p, node);
-	}
-};
 /**
 * Creates the reference param (identifier) from the given reference ID
 * Calling this function means the value has been referenced somewhere
@@ -5769,7 +5916,7 @@ function createArrayAssign(ctx, ref, index, value) {
 	createAssignment(ctx.base, getRefParam(ctx, ref) + "[" + index + "]", value);
 }
 function createObjectAssign(ctx, ref, key, value) {
-	if (!isValidKey(key)) {
+	if (key === "__proto__") {
 		ctx.base.assignments.push({
 			t: 4,
 			s: getRefParam(ctx, ref),
@@ -5787,8 +5934,33 @@ function createSequenceAssign(ctx, ref, index, value) {
 * Checks if the value is in the stack. Stack here is a reference
 * structure to know if a object is to be accessed in a TDZ.
 */
+function getKeyKind(key) {
+	const first = key.charCodeAt(0);
+	if (first >= 48 && first <= 57) {
+		const check = Number(key);
+		return check >= 0 && check.toString() === key ? 2 : 0;
+	}
+	if (key === "Infinity") return 2;
+	return isValidIdentifier(key) ? 1 : 0;
+}
 function isIndexedValueInStack(ctx, node) {
 	return node.t === 4 && ctx.stack.includes(node.i);
+}
+/**
+* Checks if the node, or any node inside it, is read from more than one
+* place. Such a node must not be created inside a deferred assignment,
+* because the places that read it may run before the assignment does.
+*/
+function hasMarkedNode(ctx, node) {
+	if (Array.isArray(node)) {
+		for (let i = 0, len = node.length; i < len; i++) if (hasMarkedNode(ctx, node[i])) return true;
+		return false;
+	}
+	if (node == null || typeof node !== "object") return false;
+	const current = node;
+	if (current.t !== 4 && typeof current.i === "number" && isSerializerRefMarked(ctx, current.i)) return true;
+	for (const key in current) if (hasMarkedNode(ctx, current[key])) return true;
+	return false;
 }
 /**
 * Produces an assignment expression. `id` generates a reference
@@ -5797,7 +5969,7 @@ function isIndexedValueInStack(ctx, node) {
 * it.
 */
 function assignIndexedValue(ctx, index, value) {
-	if (ctx.mode === 1 && !isSerializerRefMarked(ctx.base, index)) return value;
+	if (!ctx.base.assignAll && !isSerializerRefMarked(ctx.base, index)) return value;
 	/**
 	* In cross-reference, we have to assume that
 	* every reference are going to be referenced
@@ -5805,12 +5977,13 @@ function assignIndexedValue(ctx, index, value) {
 	* all of it into the reference array.
 	*
 	* otherwise in vanilla, we only do this if it
-	* is actually referenced
+	* is actually referenced. `assignSharedRefsOnly` gives cross-reference
+	* output the vanilla behavior.
 	*/
 	return getRefParam(ctx, index) + "=" + value;
 }
 function serializeReference(node) {
-	return "__SEROVAL_REFS__.get(\"" + node.s + "\")";
+	return REFERENCES_KEY + ".get(\"" + node.s + "\")";
 }
 function serializeArrayItem(ctx, id, item, index) {
 	if (item) {
@@ -5844,16 +6017,15 @@ function serializeArray(ctx, node) {
 }
 function serializeProperty(ctx, source, key, val) {
 	if (typeof key === "string") {
-		const check = Number(key);
-		const isIdentifier = check >= 0 && check.toString() === key || isValidIdentifier(key);
+		const kind = getKeyKind(key);
 		if (isIndexedValueInStack(ctx.base, val)) {
 			const refParam = getRefParam(ctx, val.i);
 			markSerializerRef(ctx.base, source.i);
-			if (isIdentifier && check !== check) createObjectAssign(ctx, source.i, key, refParam);
-			else createArrayAssign(ctx, source.i, isIdentifier ? key : "\"" + key + "\"", refParam);
+			if (kind === 1) createObjectAssign(ctx, source.i, key, refParam);
+			else createArrayAssign(ctx, source.i, kind === 2 ? key : "\"" + key + "\"", refParam);
 			return "";
 		}
-		if (isValidKey(key)) return (isIdentifier ? key : "\"" + key + "\"") + ":" + serialize$1(ctx, val);
+		if (key !== "__proto__") return (kind === 0 ? "\"" + key + "\"" : key) + ":" + serialize$1(ctx, val);
 		return "[\"" + key + "\"]:" + serialize$1(ctx, val);
 	}
 	return "[" + serialize$1(ctx, key) + "]:" + serialize$1(ctx, val);
@@ -5865,7 +6037,7 @@ function serializeProperties(ctx, source, record) {
 		const values = record.v;
 		ctx.base.stack.push(source.i);
 		let result = serializeProperty(ctx, source, keys[0], values[0]);
-		for (let i = 1, item = result; i < len; i++) {
+		for (let i = 1, item; i < len; i++) {
 			item = serializeProperty(ctx, source, keys[i], values[i]);
 			result += (item && result && ",") + item;
 		}
@@ -5886,18 +6058,14 @@ function serializeWithObjectAssign(ctx, source, value, serialized) {
 function serializeStringKeyAssignment(ctx, source, mainAssignments, key, value) {
 	const base = ctx.base;
 	const serialized = serialize$1(ctx, value);
-	const check = Number(key);
-	const isIdentifier = check >= 0 && check.toString() === key || isValidIdentifier(key);
-	if (isIndexedValueInStack(base, value)) {
-		if (isIdentifier && check !== check) createObjectAssign(ctx, source.i, key, serialized);
-		else createArrayAssign(ctx, source.i, isIdentifier ? key : "\"" + key + "\"", serialized);
-	} else {
-		const parentAssignment = base.assignments;
-		base.assignments = mainAssignments;
-		if (isIdentifier && check !== check) createObjectAssign(ctx, source.i, key, serialized);
-		else createArrayAssign(ctx, source.i, isIdentifier ? key : "\"" + key + "\"", serialized);
-		base.assignments = parentAssignment;
-	}
+	const parentAssignment = base.assignments;
+	if (!isIndexedValueInStack(base, value)) base.assignments = mainAssignments;
+	createKeyAssign(ctx, source.i, getKeyKind(key), key, serialized);
+	base.assignments = parentAssignment;
+}
+function createKeyAssign(ctx, ref, kind, key, value) {
+	if (kind === 1) createObjectAssign(ctx, ref, key, value);
+	else createArrayAssign(ctx, ref, kind === 2 ? key : "\"" + key + "\"", value);
 }
 function serializeAssignment(ctx, source, mainAssignments, key, value) {
 	if (typeof key === "string") serializeStringKeyAssignment(ctx, source, mainAssignments, key, value);
@@ -5928,7 +6096,7 @@ function serializeAssignments(ctx, source, node) {
 function serializeDictionary(ctx, node, init) {
 	if (node.p) {
 		const base = ctx.base;
-		if (base.features & 8) init = serializeWithObjectAssign(ctx, node, node.p, init);
+		if (base.features & 8 && !node.p.k.includes("__proto__")) init = serializeWithObjectAssign(ctx, node, node.p, init);
 		else {
 			markSerializerRef(base, node.i);
 			const assignments = serializeAssignments(ctx, node, node.p);
@@ -5944,22 +6112,15 @@ function serializeNullConstructor(ctx, node) {
 function serializeDate(node) {
 	return "new Date(\"" + node.s + "\")";
 }
-var TEMPORAL_CONSTRUCTOR = {
-	[0]: "Temporal.Instant",
-	[1]: "Temporal.Duration",
-	[2]: "Temporal.PlainDate",
-	[3]: "Temporal.PlainDateTime",
-	[4]: "Temporal.PlainMonthDay",
-	[5]: "Temporal.PlainTime",
-	[6]: "Temporal.PlainYearMonth",
-	[7]: "Temporal.ZonedDateTime"
-};
 function serializeTemporal(ctx, node) {
-	if (ctx.base.features & 64) return TEMPORAL_CONSTRUCTOR[node.c] + ".from(\"" + node.s + "\")";
+	if (ctx.base.features & 64) return "Temporal." + TEMPORAL_TYPE_NAME[node.c] + ".from(\"" + node.s + "\")";
 	throw new SerovalUnsupportedNodeError(node);
 }
 function serializeRegExp(ctx, node) {
-	if (ctx.base.features & 32) return "/" + deserializeString(node.c) + "/" + node.m;
+	if (ctx.base.features & 32) {
+		if (node.c.includes("\\x3C")) return "new RegExp(\"" + node.c + "\",\"" + node.m + "\")";
+		return "/" + deserializeString(node.c) + "/" + node.m;
+	}
 	throw new SerovalUnsupportedNodeError(node);
 }
 function serializeSetItem(ctx, id, item) {
@@ -5979,7 +6140,7 @@ function serializeSet(ctx, node) {
 	if (size > 0) {
 		ctx.base.stack.push(id);
 		let result = serializeSetItem(ctx, id, items[0]);
-		for (let i = 1, item = result; i < size; i++) {
+		for (let i = 1, item; i < size; i++) {
 			item = serializeSetItem(ctx, id, items[i]);
 			result += (item && result && ",") + item;
 		}
@@ -5988,7 +6149,7 @@ function serializeSet(ctx, node) {
 	}
 	return serialized;
 }
-function serializeMapEntry(ctx, id, key, val, sentinel) {
+function serializeMapEntry(ctx, id, key, val, getSentinel) {
 	const base = ctx.base;
 	if (isIndexedValueInStack(base, key)) {
 		const keyRef = getRefParam(ctx, key.i);
@@ -5997,7 +6158,9 @@ function serializeMapEntry(ctx, id, key, val, sentinel) {
 			createSetAssignment(ctx, id, keyRef, getRefParam(ctx, val.i));
 			return "";
 		}
-		if (val.t !== 4 && val.i != null && isSerializerRefMarked(base, val.i)) {
+		if (val.t !== 4 && val.i != null && hasMarkedNode(base, val)) {
+			markSerializerRef(base, val.i);
+			const sentinel = getSentinel();
 			const serialized = "(" + serialize$1(ctx, val) + ",[" + sentinel + "," + sentinel + "])";
 			createSetAssignment(ctx, id, keyRef, getRefParam(ctx, val.i));
 			createDeleteAssignment(ctx, id, sentinel);
@@ -6012,7 +6175,9 @@ function serializeMapEntry(ctx, id, key, val, sentinel) {
 	if (isIndexedValueInStack(base, val)) {
 		const valueRef = getRefParam(ctx, val.i);
 		markSerializerRef(base, id);
-		if (key.t !== 4 && key.i != null && isSerializerRefMarked(base, key.i)) {
+		if (key.t !== 4 && key.i != null && hasMarkedNode(base, key)) {
+			markSerializerRef(base, key.i);
+			const sentinel = getSentinel();
 			const serialized = "(" + serialize$1(ctx, key) + ",[" + sentinel + "," + sentinel + "])";
 			createSetAssignment(ctx, id, getRefParam(ctx, key.i), valueRef);
 			createDeleteAssignment(ctx, id, sentinel);
@@ -6032,20 +6197,27 @@ function serializeMap(ctx, node) {
 	const size = keys.length;
 	const id = node.i;
 	const sentinel = node.f;
-	const sentinelId = getRefParam(ctx, sentinel.i);
+	let sentinelRef;
+	const getSentinel = () => {
+		if (sentinelRef == null) {
+			sentinelRef = getRefParam(ctx, sentinel.i);
+			if (ctx.mode === 1) ctx.state.sentinels.add(ctx.state.valid.get(sentinel.i));
+		}
+		return sentinelRef;
+	};
 	const base = ctx.base;
 	if (size > 0) {
 		const vals = node.e.v;
 		base.stack.push(id);
-		let result = serializeMapEntry(ctx, id, keys[0], vals[0], sentinelId);
-		for (let i = 1, item = result; i < size; i++) {
-			item = serializeMapEntry(ctx, id, keys[i], vals[i], sentinelId);
+		let result = serializeMapEntry(ctx, id, keys[0], vals[0], getSentinel);
+		for (let i = 1, item; i < size; i++) {
+			item = serializeMapEntry(ctx, id, keys[i], vals[i], getSentinel);
 			result += (item && result && ",") + item;
 		}
 		base.stack.pop();
 		if (result) serialized += "([" + result + "])";
 	}
-	if (sentinel.t === 26) {
+	if (ctx.mode === 2 && sentinel.t === 26) {
 		markSerializerRef(base, sentinel.i);
 		serialized = "(" + serialize$1(ctx, sentinel) + "," + serialized + ")";
 	}
@@ -6054,11 +6226,8 @@ function serializeMap(ctx, node) {
 function serializeArrayBuffer(ctx, node) {
 	return getConstructor(ctx, node.f) + "(\"" + node.s + "\")";
 }
-function serializeTypedArray(ctx, node) {
-	return "new " + node.c + "(" + serialize$1(ctx, node.f) + "," + node.b + "," + node.l + ")";
-}
-function serializeDataView(ctx, node) {
-	return "new DataView(" + serialize$1(ctx, node.f) + "," + node.b + "," + node.l + ")";
+function serializeView(ctx, node) {
+	return "new " + (node.t === 20 ? "DataView" : node.c) + "(" + serialize$1(ctx, node.f) + "," + node.b + "," + node.l + ")";
 }
 function serializeAggregateError(ctx, node) {
 	const id = node.i;
@@ -6098,11 +6267,7 @@ function serializePromiseConstructor(ctx, node) {
 	if (ctx.mode === 1) throw new SerovalUnsupportedNodeError(node);
 	return "(" + assignIndexedValue(ctx, node.s, getConstructor(ctx, node.f) + "()") + ").p";
 }
-function serializePromiseResolve(ctx, node) {
-	if (ctx.mode === 1) throw new SerovalUnsupportedNodeError(node);
-	return getConstructor(ctx, node.a[0]) + "(" + getRefParam(ctx, node.i) + "," + serialize$1(ctx, node.a[1]) + ")";
-}
-function serializePromiseReject(ctx, node) {
+function serializePromiseResult(ctx, node) {
 	if (ctx.mode === 1) throw new SerovalUnsupportedNodeError(node);
 	return getConstructor(ctx, node.a[0]) + "(" + getRefParam(ctx, node.i) + "," + serialize$1(ctx, node.a[1]) + ")";
 }
@@ -6110,10 +6275,7 @@ function serializePlugin(ctx, node) {
 	const currentPlugins = ctx.base.plugins;
 	if (currentPlugins) for (let i = 0, len = currentPlugins.length; i < len; i++) {
 		const plugin = currentPlugins[i];
-		if (plugin.tag === node.c) {
-			if (ctx.child == null) ctx.child = new SerializePluginContext(ctx);
-			return plugin.serialize(node.s, ctx.child, { id: node.i });
-		}
+		if (plugin.tag === node.c) return plugin.serialize(node.s, { serialize: (current) => serialize$1(ctx, current) }, { id: node.i });
 	}
 	throw new SerovalMissingPluginError(node.c);
 }
@@ -6150,11 +6312,8 @@ function serializeAsyncIteratorFactory(ctx, node) {
 	if (result) return result + iterator + ")";
 	return iterator;
 }
-function serializeAsyncIteratorFactoryInstance(ctx, node) {
-	return getConstructor(ctx, node.a[0]) + "(" + serialize$1(ctx, node.a[1]) + ")";
-}
 function serializeStreamConstructor(ctx, node) {
-	const result = assignIndexedValue(ctx, node.i, getConstructor(ctx, node.f) + "()");
+	const result = assignIndexedValue(ctx, node.i, getConstructor(ctx, node.f) + (node.l === 1 ? "(1)" : "()"));
 	const len = node.a.length;
 	if (len) {
 		let values = serialize$1(ctx, node.a[0]);
@@ -6163,14 +6322,8 @@ function serializeStreamConstructor(ctx, node) {
 	}
 	return result;
 }
-function serializeStreamNext(ctx, node) {
-	return getRefParam(ctx, node.i) + ".next(" + serialize$1(ctx, node.f) + ")";
-}
-function serializeStreamThrow(ctx, node) {
-	return getRefParam(ctx, node.i) + ".throw(" + serialize$1(ctx, node.f) + ")";
-}
-function serializeStreamReturn(ctx, node) {
-	return getRefParam(ctx, node.i) + ".return(" + serialize$1(ctx, node.f) + ")";
+function serializeStreamCall(ctx, node, method) {
+	return getRefParam(ctx, node.i) + "." + method + "(" + serialize$1(ctx, node.f) + ")";
 }
 function serializeSequenceItem(ctx, id, index, item) {
 	const base = ctx.base;
@@ -6188,7 +6341,7 @@ function serializeSequence(ctx, node) {
 	if (size > 0) {
 		ctx.base.stack.push(id);
 		let result = serializeSequenceItem(ctx, id, 0, items[0]);
-		for (let i = 1, item = result; i < size; i++) {
+		for (let i = 1, item; i < size; i++) {
 			item = serializeSequenceItem(ctx, id, i, items[i]);
 			result += (item && result && ",") + item;
 		}
@@ -6210,8 +6363,8 @@ function serializeAssignable(ctx, node) {
 		case 8: return serializeMap(ctx, node);
 		case 19: return serializeArrayBuffer(ctx, node);
 		case 16:
-		case 15: return serializeTypedArray(ctx, node);
-		case 20: return serializeDataView(ctx, node);
+		case 15:
+		case 20: return serializeView(ctx, node);
 		case 14: return serializeAggregateError(ctx, node);
 		case 13: return serializeError(ctx, node);
 		case 12: return serializePromise(ctx, node);
@@ -6231,20 +6384,20 @@ function serialize$1(ctx, node) {
 		case 1: return "\"" + node.s + "\"";
 		case 3: return node.s + "n";
 		case 4: return getRefParam(ctx, node.i);
-		case 23: return serializePromiseResolve(ctx, node);
-		case 24: return serializePromiseReject(ctx, node);
+		case 23:
+		case 24: return serializePromiseResult(ctx, node);
 		case 27: return serializeIteratorFactory(ctx, node);
-		case 28: return serializeIteratorFactoryInstance(ctx, node);
+		case 28:
+		case 30: return serializeIteratorFactoryInstance(ctx, node);
 		case 29: return serializeAsyncIteratorFactory(ctx, node);
-		case 30: return serializeAsyncIteratorFactoryInstance(ctx, node);
 		case 31: return serializeStreamConstructor(ctx, node);
-		case 32: return serializeStreamNext(ctx, node);
-		case 33: return serializeStreamThrow(ctx, node);
-		case 34: return serializeStreamReturn(ctx, node);
+		case 32: return serializeStreamCall(ctx, node, "next");
+		case 33: return serializeStreamCall(ctx, node, "throw");
+		case 34: return serializeStreamCall(ctx, node, "return");
 		default: return assignIndexedValue(ctx, node.i, serializeAssignable(ctx, node));
 	}
 }
-function serializeTopCross(ctx, tree) {
+function serializeCross(ctx, tree) {
 	const result = serialize$1(ctx, tree);
 	const id = tree.i;
 	if (id == null) return result;
@@ -6252,7 +6405,11 @@ function serializeTopCross(ctx, tree) {
 	const ref = getRefParam(ctx, id);
 	const scopeId = ctx.state.scopeId;
 	const params = scopeId == null ? "" : "$R";
-	const body = patches ? "(" + result + "," + patches + ref + ")" : result;
+	let body = result;
+	if (patches) {
+		if (!ctx.base.assignAll && !result.startsWith(ref + "=")) body = ref + "=" + result;
+		body = "(" + body + "," + patches + ref + ")";
+	}
 	if (params === "") {
 		if (tree.t === 10 && !patches) return "(" + body + ")";
 		return body;
@@ -6260,67 +6417,20 @@ function serializeTopCross(ctx, tree) {
 	const args = scopeId == null ? "()" : "($R[\"" + serializeString(scopeId) + "\"])";
 	return "(" + createFunction([params], body) + ")" + args;
 }
-var SyncParsePluginContext = class {
-	constructor(_p, depth) {
-		this._p = _p;
-		this.depth = depth;
-	}
-	parse(current) {
-		return parseSOS(this._p, this.depth, current);
-	}
-};
-var StreamParsePluginContext = class {
-	constructor(_p, depth) {
-		this._p = _p;
-		this.depth = depth;
-	}
-	parse(current) {
-		return parseSOS(this._p, this.depth, current);
-	}
-	parseWithError(current) {
-		return parseWithError(this._p, this.depth, current);
-	}
-	isAlive() {
-		return this._p.state.alive;
-	}
-	pushPendingState() {
-		pushPendingState(this._p);
-	}
-	popPendingState() {
-		popPendingState(this._p);
-	}
-	onParse(node) {
-		onParse(this._p, node);
-	}
-	onError(error) {
-		onError(this._p, error);
-	}
-	addCleanup(callback) {
-		this._p.state.cleanups.push(callback);
-	}
-};
-function createStreamParserState(options) {
-	return {
-		alive: true,
-		pending: 0,
-		initial: true,
-		buffer: [],
-		onParse: options.onParse,
-		onError: options.onError,
-		onDone: options.onDone,
-		cleanups: []
-	};
+function wrapSerializationError(error) {
+	return error instanceof SerovalSerializationError ? error : new SerovalSerializationError(error);
 }
-function createStreamParserContext(options) {
-	return {
-		type: 2,
-		base: createBaseParserContext(2, options),
-		state: createStreamParserState(options)
-	};
+function serializeTopCross(ctx, tree) {
+	try {
+		return serializeCross(ctx, tree);
+	} catch (error) {
+		throw wrapSerializationError(error);
+	}
 }
 function parseItems(ctx, depth, current) {
-	const nodes = [];
-	for (let i = 0, len = current.length; i < len; i++) if (i in current) nodes[i] = parseSOS(ctx, depth, current[i]);
+	const len = current.length;
+	const nodes = new Array(len);
+	for (let i = 0; i < len; i++) if (i in current) nodes[i] = parseSOS(ctx, depth, current[i]);
 	else nodes[i] = 0;
 	return nodes;
 }
@@ -6328,20 +6438,22 @@ function parseArray(ctx, depth, id, current) {
 	return createArrayNode(id, current, parseItems(ctx, depth, current));
 }
 function parseProperties(ctx, depth, properties) {
-	const entries = Object.entries(properties);
-	const keyNodes = [];
-	const valueNodes = [];
-	for (let i = 0, len = entries.length; i < len; i++) {
-		keyNodes.push(serializeString(entries[i][0]));
-		valueNodes.push(parseSOS(ctx, depth, entries[i][1]));
+	const keys = Object.keys(properties);
+	const len = keys.length;
+	const keyNodes = new Array(len);
+	const valueNodes = new Array(len);
+	for (let i = 0, key; i < len; i++) {
+		key = keys[i];
+		keyNodes[i] = serializeString(key);
+		valueNodes[i] = parseSOS(ctx, depth, properties[key]);
 	}
 	if (SYM_ITERATOR in properties) {
 		keyNodes.push(parseWellKnownSymbol(ctx.base, SYM_ITERATOR));
-		valueNodes.push(createIteratorFactoryInstanceNode(parseIteratorFactory(ctx.base), parseSOS(ctx, depth, createSequenceFromIterable(properties))));
+		valueNodes.push(createIteratorFactoryInstanceNode(28, parseIteratorFactory(ctx.base), parseSOS(ctx, depth, createSequenceFromIterable(properties))));
 	}
 	if (SYM_ASYNC_ITERATOR in properties) {
 		keyNodes.push(parseWellKnownSymbol(ctx.base, SYM_ASYNC_ITERATOR));
-		valueNodes.push(createAsyncIteratorFactoryInstanceNode(parseAsyncIteratorFactory(ctx.base), parseSOS(ctx, depth, ctx.type === 1 ? createStream() : createStreamFromAsyncIterable(properties, ctx.state.cleanups))));
+		valueNodes.push(createIteratorFactoryInstanceNode(30, parseAsyncIteratorFactory(ctx.base), parseAsyncIterable(ctx, depth, properties)));
 	}
 	if (SYM_TO_STRING_TAG in properties) {
 		keyNodes.push(parseWellKnownSymbol(ctx.base, SYM_TO_STRING_TAG));
@@ -6356,187 +6468,131 @@ function parseProperties(ctx, depth, properties) {
 		v: valueNodes
 	};
 }
+function parseAsyncIterable(ctx, depth, current) {
+	if (ctx.type !== 2) throw new SerovalUnsupportedTypeError(current);
+	const id = createIndexForValue(ctx.base, {});
+	const result = createStreamConstructorNode(id, parseSpecialReference(ctx.base, 4), []);
+	ctx.state.iterable(ctx, depth, id, current);
+	return result;
+}
 function parsePlainObject(ctx, depth, id, current, empty) {
 	return createObjectNode(id, current, empty, parseProperties(ctx, depth, current));
 }
 function parseBoxed(ctx, depth, id, current) {
 	return createBoxedNode(id, parseSOS(ctx, depth, current.valueOf()));
 }
-function parseTypedArray(ctx, depth, id, current) {
+function parseView(ctx, depth, type, id, current) {
 	current = getArrayBufferView(ctx.base, current);
-	return createTypedArrayNode(id, current, parseSOS(ctx, depth, current.buffer));
+	return createViewNode(type, id, current, parseSOS(ctx, depth, current.buffer));
 }
-function parseBigIntTypedArray(ctx, depth, id, current) {
-	current = getArrayBufferView(ctx.base, current);
-	return createBigIntTypedArrayNode(id, current, parseSOS(ctx, depth, current.buffer));
-}
-function parseDataView(ctx, depth, id, current) {
-	current = getArrayBufferView(ctx.base, current);
-	return createDataViewNode(id, current, parseSOS(ctx, depth, current.buffer));
-}
-function parseError(ctx, depth, id, current) {
+function parseError(ctx, depth, type, id, current) {
 	const options = getErrorOptions(current, ctx.base.features);
-	return createErrorNode(id, current, options ? parseProperties(ctx, depth, options) : void 0);
-}
-function parseAggregateError(ctx, depth, id, current) {
-	const options = getErrorOptions(current, ctx.base.features);
-	return createAggregateErrorNode(id, current, options ? parseProperties(ctx, depth, options) : void 0);
+	return createErrorNode(type, id, current, options ? parseProperties(ctx, depth, options) : void 0);
 }
 function parseMap(ctx, depth, id, current) {
-	const keyNodes = [];
-	const valueNodes = [];
+	const sentinel = parseMapSentinel(ctx.base);
+	const keyNodes = new Array(current.size);
+	const valueNodes = new Array(current.size);
+	let i = 0;
 	for (const [key, value] of current.entries()) {
-		keyNodes.push(parseSOS(ctx, depth, key));
-		valueNodes.push(parseSOS(ctx, depth, value));
+		keyNodes[i] = parseSOS(ctx, depth, key);
+		valueNodes[i] = parseSOS(ctx, depth, value);
+		i++;
 	}
-	return createMapNode(ctx.base, id, keyNodes, valueNodes);
+	return createMapNode(id, sentinel, keyNodes, valueNodes);
 }
 function parseSet(ctx, depth, id, current) {
-	const items = [];
-	for (const item of current.keys()) items.push(parseSOS(ctx, depth, item));
+	const items = new Array(current.size);
+	let i = 0;
+	for (const item of current.keys()) items[i++] = parseSOS(ctx, depth, item);
 	return createSetNode(id, items);
 }
+/**
+* Sends the events of a stream that has ended, so the copy gets all of them.
+* A stream that is still open throws, because the other sync modes cannot
+* send its later events.
+*/
+function parseEndedStream(ctx, depth, id, current) {
+	const events = current.endedEvents();
+	if (!events) throw new SerovalUnsupportedTypeError(current);
+	const values = events.values;
+	const last = values.length - 1;
+	const sequence = new Array(values.length);
+	if (last >= 0) markParserRef(ctx.base, id);
+	for (let i = 0; i <= last; i++) sequence[i] = createStreamEventNode(i < last ? 32 : events.success ? 34 : 33, id, parseSOS(ctx, depth, values[i]));
+	return sequence;
+}
 function parseStream(ctx, depth, id, current) {
-	const result = createStreamConstructorNode(id, parseSpecialReference(ctx.base, 4), []);
-	if (ctx.type === 1) return result;
-	pushPendingState(ctx);
-	current.on({
-		next: (value) => {
-			if (ctx.state.alive) {
-				const parsed = parseWithError(ctx, depth, value);
-				if (parsed) onParse(ctx, createStreamNextNode(id, parsed));
-			}
-		},
-		throw: (value) => {
-			if (ctx.state.alive) {
-				const parsed = parseWithError(ctx, depth, value);
-				if (parsed) onParse(ctx, createStreamThrowNode(id, parsed));
-			}
-			popPendingState(ctx);
-		},
-		return: (value) => {
-			if (ctx.state.alive) {
-				const parsed = parseWithError(ctx, depth, value);
-				if (parsed) onParse(ctx, createStreamReturnNode(id, parsed));
-			}
-			popPendingState(ctx);
-		}
-	});
+	const reference = parseSpecialReference(ctx.base, 4);
+	if (ctx.type === 2) {
+		const result = createStreamConstructorNode(id, reference, []);
+		ctx.state.stream(ctx, depth, id, current);
+		return result;
+	}
+	return createStreamConstructorNode(id, reference, parseEndedStream(ctx, depth, id, current));
+}
+function parseLiveStream(ctx, depth, id, current) {
+	if (ctx.type !== 2) throw new SerovalUnsupportedTypeError(current);
+	const result = createStreamConstructorNode(id, parseSpecialReference(ctx.base, 4), [], 1);
+	ctx.state.live(ctx, depth, id, current);
 	return result;
 }
-function handlePromiseSuccess(id, depth, data) {
-	if (this.state.alive) {
-		const parsed = parseWithError(this, depth, data);
-		if (parsed) onParse(this, createSerovalNode(23, id, void 0, void 0, void 0, void 0, void 0, [parseSpecialReference(this.base, 2), parsed], void 0, void 0, void 0, void 0));
-		popPendingState(this);
-	}
-}
-function handlePromiseFailure(id, depth, data) {
-	if (this.state.alive) {
-		const parsed = parseWithError(this, depth, data);
-		if (parsed) onParse(this, createSerovalNode(24, id, void 0, void 0, void 0, void 0, void 0, [parseSpecialReference(this.base, 3), parsed], void 0, void 0, void 0, void 0));
-	}
-	popPendingState(this);
-}
 function parsePromise(ctx, depth, id, current) {
+	if (ctx.type !== 2) throw new SerovalUnsupportedTypeError(current);
 	const resolver = createIndexForValue(ctx.base, {});
-	if (ctx.type === 2) {
-		pushPendingState(ctx);
-		current.then(handlePromiseSuccess.bind(ctx, resolver, depth), handlePromiseFailure.bind(ctx, resolver, depth));
-	}
+	ctx.state.promise(ctx, resolver, depth, current);
 	return createPromiseConstructorNode(ctx.base, id, resolver);
 }
 function parsePluginSync(ctx, depth, id, current, currentPlugins) {
 	for (let i = 0, len = currentPlugins.length; i < len; i++) {
 		const plugin = currentPlugins[i];
-		if (plugin.parse.sync && plugin.test(current)) return createPluginNode(id, plugin.tag, plugin.parse.sync(current, new SyncParsePluginContext(ctx, depth), { id }));
+		if (plugin.parse.sync && plugin.test(current)) return createPluginNode(id, plugin.tag, plugin.parse.sync(current, { parse: (value) => parseSOS(ctx, depth, value) }, { id }));
 	}
 }
-function parsePluginStream(ctx, depth, id, current, currentPlugins) {
-	for (let i = 0, len = currentPlugins.length; i < len; i++) {
-		const plugin = currentPlugins[i];
-		if (plugin.parse.stream && plugin.test(current)) return createPluginNode(id, plugin.tag, plugin.parse.stream(current, new StreamParsePluginContext(ctx, depth), { id }));
-	}
-}
-function parsePlugin(ctx, depth, id, current) {
-	const currentPlugins = ctx.base.plugins;
-	if (currentPlugins) return ctx.type === 1 ? parsePluginSync(ctx, depth, id, current, currentPlugins) : parsePluginStream(ctx, depth, id, current, currentPlugins);
+function parsePlugin(ctx, depth, id, current, currentPlugins) {
+	if (currentPlugins) return ctx.type === 1 ? parsePluginSync(ctx, depth, id, current, currentPlugins) : ctx.state.plugin(ctx, depth, id, current, currentPlugins);
 }
 function parseSequence(ctx, depth, id, current) {
-	const nodes = [];
-	for (let i = 0, len = current.v.length; i < len; i++) nodes[i] = parseSOS(ctx, depth, current.v[i]);
+	const len = current.v.length;
+	const nodes = new Array(len);
+	for (let i = 0; i < len; i++) nodes[i] = parseSOS(ctx, depth, current.v[i]);
 	return createSequenceNode(id, nodes, current.t, current.d);
 }
 function parseObjectPhase2(ctx, depth, id, current, currentClass) {
-	switch (currentClass) {
-		case Object: return parsePlainObject(ctx, depth, id, current, false);
-		case void 0: return parsePlainObject(ctx, depth, id, current, true);
-		case Date: return createDateNode(id, current);
-		case Error:
-		case EvalError:
-		case RangeError:
-		case ReferenceError:
-		case SyntaxError:
-		case TypeError:
-		case URIError: return parseError(ctx, depth, id, current);
-		case Number:
-		case Boolean:
-		case String:
-		case BigInt: return parseBoxed(ctx, depth, id, current);
-		case ArrayBuffer: return createArrayBufferNode(ctx.base, id, current);
-		case Int8Array:
-		case Int16Array:
-		case Int32Array:
-		case Uint8Array:
-		case Uint16Array:
-		case Uint32Array:
-		case Uint8ClampedArray:
-		case Float32Array:
-		case Float64Array: return parseTypedArray(ctx, depth, id, current);
-		case DataView: return parseDataView(ctx, depth, id, current);
-		case Map: return parseMap(ctx, depth, id, current);
-		case Set: return parseSet(ctx, depth, id, current);
+	if (currentClass === Object) return parsePlainObject(ctx, depth, id, current, false);
+	switch (getObjectKind(current, currentClass, ctx.base.features)) {
+		case 2: return parsePlainObject(ctx, depth, id, current, true);
+		case 3: return createDateNode(id, current);
+		case 4: return parseError(ctx, depth, 13, id, current);
+		case 5: return parseError(ctx, depth, 14, id, current);
+		case 6: return parseBoxed(ctx, depth, id, current);
+		case 7: return createArrayBufferNode(ctx.base, id, current);
+		case 8: return parseView(ctx, depth, 15, id, current);
+		case 9: return parseView(ctx, depth, 16, id, current);
+		case 10: return parseView(ctx, depth, 20, id, current);
+		case 11: return parseMap(ctx, depth, id, current);
+		case 12: return parseSet(ctx, depth, id, current);
+		case 13: return parsePromise(ctx, depth, id, current);
+		case 14: return createRegExpNode(id, current);
+		case 15: return createTemporalNode(id, getTemporalType(currentClass), current);
+		case 16: return parsePlainObject(ctx, depth, id, current, !!currentClass);
+		default: throw new SerovalUnsupportedTypeError(current);
 	}
-	if (currentClass === Promise || current instanceof Promise) return parsePromise(ctx, depth, id, current);
-	const currentFeatures = ctx.base.features;
-	if (currentFeatures & 32 && currentClass === RegExp) return createRegExpNode(id, current);
-	if (currentFeatures & 16) switch (currentClass) {
-		case BigInt64Array:
-		case BigUint64Array: return parseBigIntTypedArray(ctx, depth, id, current);
-	}
-	if (currentFeatures & 1 && typeof AggregateError !== "undefined" && (currentClass === AggregateError || current instanceof AggregateError)) return parseAggregateError(ctx, depth, id, current);
-	if (currentFeatures & 64 && typeof Temporal !== "undefined") switch (currentClass) {
-		case Temporal.Instant: return createTemporalNode(id, 0, current);
-		case Temporal.Duration: return createTemporalNode(id, 1, current);
-		case Temporal.PlainDate: return createTemporalNode(id, 2, current);
-		case Temporal.PlainDateTime: return createTemporalNode(id, 3, current);
-		case Temporal.PlainMonthDay: return createTemporalNode(id, 4, current);
-		case Temporal.PlainTime: return createTemporalNode(id, 5, current);
-		case Temporal.PlainYearMonth: return createTemporalNode(id, 6, current);
-		case Temporal.ZonedDateTime: return createTemporalNode(id, 7, current);
-	}
-	if (current instanceof Error) return parseError(ctx, depth, id, current);
-	if (SYM_ITERATOR in current || SYM_ASYNC_ITERATOR in current) return parsePlainObject(ctx, depth, id, current, !!currentClass);
-	throw new SerovalUnsupportedTypeError(current);
 }
 function parseObject(ctx, depth, id, current) {
 	if (Array.isArray(current)) return parseArray(ctx, depth, id, current);
-	if (isStream(current)) return parseStream(ctx, depth, id, current);
+	if (isStream(current)) return isLiveStream(current) ? parseLiveStream(ctx, depth, id, current) : parseStream(ctx, depth, id, current);
 	if (isSequence(current)) return parseSequence(ctx, depth, id, current);
-	let currentClass = current.constructor;
-	if (currentClass !== void 0 && typeof currentClass !== "function") {
-		const proto = Object.getPrototypeOf(current);
-		currentClass = proto === null ? void 0 : proto.constructor;
-	}
+	const currentClass = getObjectClass(current);
 	if (currentClass === OpaqueReference) return parseSOS(ctx, depth, current.replacement);
-	const parsed = parsePlugin(ctx, depth, id, current);
+	const parsed = parsePlugin(ctx, depth, id, current, getObjectPlugins(ctx.base, current, currentClass));
 	if (parsed) return parsed;
 	return parseObjectPhase2(ctx, depth, id, current, currentClass);
 }
 function parseFunction(ctx, depth, current) {
 	const ref = getReferenceNode(ctx.base, current);
-	if (ref.type !== 0) return ref.value;
-	const plugin = parsePlugin(ctx, depth, ref.value, current);
+	if (typeof ref !== "number") return ref;
+	const plugin = parsePlugin(ctx, depth, ref, current, ctx.base.plugins);
 	if (plugin) return plugin;
 	throw new SerovalUnsupportedTypeError(current);
 }
@@ -6551,7 +6607,7 @@ function parseSOS(ctx, depth, current) {
 		case "object":
 			if (current) {
 				const ref = getReferenceNode(ctx.base, current);
-				return ref.type === 0 ? parseObject(ctx, depth + 1, ref.value, current) : ref.value;
+				return typeof ref === "number" ? parseObject(ctx, depth + 1, ref, current) : ref;
 			}
 			return NULL_NODE;
 		case "symbol": return parseWellKnownSymbol(ctx.base, current);
@@ -6559,61 +6615,427 @@ function parseSOS(ctx, depth, current) {
 		default: throw new SerovalUnsupportedTypeError(current);
 	}
 }
-function onParse(ctx, node) {
-	if (ctx.state.initial) ctx.state.buffer.push(node);
-	else onParseInternal(ctx, node, false);
-}
-function onError(ctx, error) {
-	if (ctx.state.onError) ctx.state.onError(error);
-	else throw error instanceof SerovalParserError ? error : new SerovalParserError(error);
-}
-function onDone(ctx) {
-	if (ctx.state.onDone) ctx.state.onDone();
-	for (let i = 0, len = ctx.state.cleanups.length; i < len; i++) ctx.state.cleanups[i]();
-}
-function onParseInternal(ctx, node, initial) {
-	try {
-		ctx.state.onParse(node, initial);
-	} catch (error) {
-		onError(ctx, error);
+/**
+* Streaming parse mode. Everything here is reached through the function
+* fields of the stream parser state, which only `createStreamParserContext`
+* sets, so synchronous consumers (`serialize`, `toJSON`) never bundle it.
+*/
+function createStreamParsePluginContext(ctx, depth) {
+	const state = ctx.state;
+	function parse(current) {
+		state.parsing++;
+		try {
+			return parseSOS(ctx, depth, current);
+		} finally {
+			state.parsing--;
+			if (!state.alive) releaseParserValues(ctx);
+		}
 	}
+	return {
+		parse,
+		parseStreamSource(current) {
+			state.parsing++;
+			try {
+				if (depth >= ctx.base.depthLimit) throw new SerovalDepthLimitError(ctx.base.depthLimit);
+				const id = createIndexForValue(ctx.base, {});
+				const node = createStreamConstructorNode(id, parseSpecialReference(ctx.base, 4), [], 1);
+				iterateAsync(ctx, depth + 1, id, current, true);
+				return node;
+			} finally {
+				state.parsing--;
+				if (!state.alive) releaseParserValues(ctx);
+			}
+		},
+		parseWithError(current) {
+			try {
+				return parse(current);
+			} catch (error) {
+				stopStreamParse(ctx, 1, error);
+				return;
+			}
+		},
+		isAlive: () => state.alive,
+		pushPendingState: () => {
+			pushPendingState(ctx);
+		},
+		popPendingState: () => {
+			popPendingState(ctx);
+		},
+		onParse(node) {
+			if (state.alive) {
+				state.queue.push({
+					node,
+					initial: false,
+					accept: void 0
+				});
+				drainOutput(ctx);
+			}
+		},
+		onError(error) {
+			stopStreamParse(ctx, 1, error);
+		},
+		addCleanup(callback) {
+			addCleanup(ctx, callback);
+		}
+	};
+}
+function getStreamParsePluginContext(ctx, depth) {
+	const contexts = ctx.state.pluginContexts;
+	return contexts[depth] ?? (contexts[depth] = createStreamParsePluginContext(ctx, depth));
+}
+function addCleanup(ctx, callback) {
+	if (ctx.state.alive) ctx.state.cleanups.push(callback);
+	else callback();
+}
+function parsePluginStream(ctx, depth, id, current, currentPlugins) {
+	for (let i = 0, len = currentPlugins.length; i < len; i++) {
+		const plugin = currentPlugins[i];
+		if (plugin.parse.stream && plugin.test(current)) return createPluginNode(id, plugin.tag, plugin.parse.stream(current, getStreamParsePluginContext(ctx, depth), { id }));
+	}
+}
+/**
+* One listener shape serves both `Stream.on` (no accept) and
+* `LiveStream.pump` (accept tied to record acceptance). Handlers return the
+* parse error so the pump can stop the source.
+*/
+function streamListener(ctx, depth, id, subscription) {
+	const handle = (type, terminal) => (value, accept) => {
+		let failure = void 0;
+		if (ctx.state.alive) try {
+			failure = parseEvent(ctx, depth, value, createStreamEventNode.bind(null, type, id), accept);
+		} catch (error) {
+			if (!subscription?.active) throw error;
+			subscription.failure ?? (subscription.failure = { value: error });
+			failure = error;
+		}
+		if (terminal && !accept) popPendingState(ctx);
+		return failure;
+	};
+	return {
+		next: handle(32, false),
+		throw: handle(33, true),
+		return: handle(34, true),
+		done() {
+			popPendingState(ctx);
+		},
+		error(reason) {
+			if (ctx.state.alive) stopStreamParse(ctx, 1, reason);
+		}
+	};
+}
+function subscribeStream(ctx, depth, id, current) {
+	pushPendingState(ctx);
+	const subscription = {
+		active: true,
+		failure: void 0
+	};
+	let cleanup;
+	try {
+		cleanup = current.on(streamListener(ctx, depth, id, subscription));
+	} finally {
+		subscription.active = false;
+	}
+	try {
+		addCleanup(ctx, cleanup);
+	} catch (error) {
+		subscription.failure ?? (subscription.failure = { value: error });
+	}
+	const failure = subscription.failure;
+	subscription.failure = void 0;
+	if (failure) throw failure.value;
+}
+function consumeLiveStream(ctx, depth, id, current) {
+	const cancel = current.pump(streamListener(ctx, depth, id));
+	pushPendingState(ctx);
+	addCleanup(ctx, () => {
+		cancel(ctx.state.reason);
+	});
+}
+function wrapPromiseResult(ctx, type, id, node) {
+	return createSerovalNode(type, id, void 0, void 0, void 0, void 0, void 0, [parseSpecialReference(ctx.base, type === 23 ? 2 : 3), node], void 0, void 0, void 0, void 0);
+}
+function handlePromise(type, id, depth, data) {
+	if (this.state.alive) parseEvent(this, depth, data, wrapPromiseResult.bind(null, this, type, id), void 0);
+	popPendingState(this);
+}
+function watchPromise(ctx, resolver, depth, current) {
+	pushPendingState(ctx);
+	current.then(handlePromise.bind(ctx, 23, resolver, depth), handlePromise.bind(ctx, 24, resolver, depth));
+}
+function returnIterator(iterator) {
+	Promise.resolve().then(() => iterator.return?.()).catch(() => {});
+}
+/**
+* Drives an async iterator directly. The next value is pulled only after the
+* record for the previous one has been accepted, and cancellation returns
+* the iterator once.
+*/
+function iterateAsync(ctx, depth, id, current, forwardReason) {
+	const iterator = current[SYM_ASYNC_ITERATOR]();
+	const listener = streamListener(ctx, depth, id);
+	let active = true;
+	function stop() {
+		if (active) {
+			active = false;
+			if (forwardReason) try {
+				Promise.resolve(iterator.return?.(ctx.state.reason)).catch(() => {});
+			} catch {}
+			else returnIterator(iterator);
+		}
+	}
+	function pull() {
+		if (active) iterator.next().then((result) => {
+			if (active) {
+				if (result.done) {
+					active = false;
+					listener.return(result.value, void 0);
+				} else if (listener.next(result.value, pull) !== void 0) {
+					stop();
+					listener.done();
+				}
+			}
+		}, (error) => {
+			if (active) {
+				active = false;
+				listener.throw(error, void 0);
+			}
+		});
+	}
+	pushPendingState(ctx);
+	addCleanup(ctx, stop);
+	pull();
+}
+function createStreamParserState(options) {
+	return {
+		alive: true,
+		pending: 0,
+		parsing: 0,
+		queue: [],
+		writing: false,
+		inFlight: void 0,
+		reason: void 0,
+		onParse: options.onParse,
+		onError: options.onError,
+		onDone: options.onDone,
+		cleanups: [],
+		pluginContexts: [],
+		stream: subscribeStream,
+		live: consumeLiveStream,
+		promise: watchPromise,
+		iterable: iterateAsync,
+		plugin: parsePluginStream
+	};
+}
+function createStreamParserContext(options) {
+	return {
+		type: 2,
+		base: createBaseParserContext(options),
+		state: createStreamParserState(options)
+	};
 }
 function pushPendingState(ctx) {
-	ctx.state.pending++;
+	if (ctx.state.alive) ctx.state.pending++;
 }
 function popPendingState(ctx) {
-	if (--ctx.state.pending <= 0) onDone(ctx);
-}
-function parseWithError(ctx, depth, current) {
-	try {
-		return parseSOS(ctx, depth, current);
-	} catch (err) {
-		onError(ctx, err);
-		return;
+	if (ctx.state.alive) {
+		ctx.state.pending--;
+		checkStreamParse(ctx);
 	}
+}
+/**
+* Parses a value that arrived after the root. Its record is queued before
+* parsing starts so that records discovered inside it follow it, and it is
+* dropped again if parsing fails. Returns the parse error after reporting
+* it, or `undefined`.
+*/
+function parseEvent(ctx, depth, value, wrap, accept) {
+	const state = ctx.state;
+	const record = {
+		node: void 0,
+		initial: false,
+		accept
+	};
+	let failure;
+	state.queue.push(record);
+	state.parsing++;
+	try {
+		record.node = wrap(parseSOS(ctx, depth, value));
+	} catch (error) {
+		failure = { value: error };
+	} finally {
+		state.parsing--;
+		if (!state.alive) releaseParserValues(ctx);
+	}
+	if (failure) stopStreamParse(ctx, 1, failure.value);
+	else drainOutput(ctx);
+	return failure?.value;
+}
+/**
+* Emits queued records one at a time. A callback that returns a promise
+* pauses emission until it settles; the source event behind the record is
+* accepted only after that.
+*/
+function drainOutput(ctx) {
+	const state = ctx.state;
+	if (state.writing || state.parsing > 0) return;
+	while (state.alive && state.queue.length > 0) {
+		const record = state.queue.shift();
+		if (!record.node) continue;
+		let pending;
+		state.writing = true;
+		state.inFlight = record;
+		state.parsing++;
+		try {
+			if (!state.onParse) throw new Error("Stream output callback is unavailable");
+			const result = state.onParse(record.node, record.initial);
+			if (result !== null && (typeof result === "object" || typeof result === "function")) {
+				const then = Reflect.get(result, "then");
+				if (typeof then === "function") pending = new Promise((resolve, reject) => {
+					Reflect.apply(then, result, [resolve, reject]);
+				});
+			}
+		} catch (error) {
+			releaseRecord(record);
+			stopStreamParse(ctx, 1, error);
+			return;
+		} finally {
+			state.parsing--;
+			if (!state.alive) releaseParserValues(ctx);
+		}
+		record.node = void 0;
+		if (pending) {
+			if (!state.alive) releaseRecord(record);
+			pending.then(() => {
+				state.writing = false;
+				state.inFlight = void 0;
+				if (state.alive) {
+					const accept = record.accept;
+					releaseRecord(record);
+					accept?.();
+					drainOutput(ctx);
+				}
+			}, (error) => {
+				state.writing = false;
+				state.inFlight = void 0;
+				releaseRecord(record);
+				stopStreamParse(ctx, 1, error);
+			});
+			return;
+		}
+		if (!state.alive) {
+			releaseRecord(record);
+			return;
+		}
+		state.writing = false;
+		state.inFlight = void 0;
+		const accept = record.accept;
+		releaseRecord(record);
+		accept?.();
+	}
+	checkStreamParse(ctx);
+}
+function checkStreamParse(ctx) {
+	const state = ctx.state;
+	if (state.alive && state.parsing === 0 && state.pending <= 0 && state.queue.length === 0 && !state.writing) stopStreamParse(ctx, 0);
 }
 function startStreamParse(ctx, current) {
-	const parsed = parseWithError(ctx, 0, current);
-	if (parsed) {
-		onParseInternal(ctx, parsed, true);
-		ctx.state.initial = false;
-		flushStreamParse(ctx, ctx.state);
-		if (ctx.state.pending <= 0) destroyStreamParse(ctx);
+	const state = ctx.state;
+	let parsed;
+	let failure;
+	state.parsing++;
+	try {
+		parsed = parseSOS(ctx, 0, current);
+	} catch (error) {
+		failure = { value: error };
+	} finally {
+		state.parsing--;
+		if (!state.alive) releaseParserValues(ctx);
+	}
+	if (failure) {
+		if (state.alive) stopStreamParse(ctx, 1, failure.value);
+		else throw failure.value;
+	} else if (parsed && state.alive) {
+		state.queue.unshift({
+			node: parsed,
+			initial: true,
+			accept: void 0
+		});
+		drainOutput(ctx);
 	}
 }
-function flushStreamParse(ctx, state) {
-	for (let i = 0, len = state.buffer.length; i < len; i++) onParseInternal(ctx, state.buffer[i], false);
-}
-function destroyStreamParse(ctx) {
-	if (ctx.state.alive) {
-		onDone(ctx);
-		ctx.state.alive = false;
+function runCleanups(state) {
+	const cleanups = state.cleanups;
+	let failure;
+	state.cleanups = [];
+	for (const record of state.queue) releaseRecord(record);
+	state.queue.length = 0;
+	if (state.inFlight) releaseRecord(state.inFlight);
+	state.inFlight = void 0;
+	for (let i = 0, len = cleanups.length; i < len; i++) try {
+		cleanups[i]();
+	} catch (error) {
+		failure ?? (failure = { value: error });
 	}
+	if (failure) throw failure.value;
+}
+function releaseRecord(record) {
+	record.node = void 0;
+	record.accept = void 0;
+}
+function releaseParserValues(ctx) {
+	ctx.base.refs = /* @__PURE__ */ new Map();
+	ctx.base.marked.clear();
+	ctx.base.plugins = void 0;
+	ctx.base.plainObjectPlugins = void 0;
+	ctx.state.pluginContexts = [];
+	if (ctx.state.parsing === 0) ctx.state.reason = void 0;
+}
+/**
+* Ends the parse once: `onDone` on success, `onError` on failure, and every
+* cleanup either way.
+*/
+function stopStreamParse(ctx, mode, reason) {
+	const state = ctx.state;
+	if (state.alive) {
+		state.alive = false;
+		const onError = state.onError;
+		const onDone = state.onDone;
+		if (mode === 1 && !onError && !(reason instanceof SerovalParserError)) reason = new SerovalParserError(reason);
+		state.reason = reason;
+		state.onParse = void 0;
+		state.onError = void 0;
+		state.onDone = void 0;
+		state.writing = false;
+		state.parsing++;
+		let failure;
+		try {
+			if (mode === 1) {
+				if (onError) onError(reason);
+				else throw reason;
+			} else if (mode === 0) onDone?.();
+		} catch (error) {
+			failure = { value: error };
+		}
+		try {
+			runCleanups(state);
+		} catch (error) {
+			failure ?? (failure = { value: error });
+		} finally {
+			state.parsing--;
+			releaseParserValues(ctx);
+			state.pending = 0;
+		}
+		if (failure) throw failure.value;
+	}
+}
+function destroyStreamParse(ctx, reason) {
+	stopStreamParse(ctx, 2, reason);
 }
 async function toCrossJSONAsync(source, options = {}) {
 	const plugins = resolvePlugins(options.plugins);
-	return await parseTopAsync(createAsyncParserContext(2, {
+	return await parseTopAsync(createAsyncParserContext({
 		compactArrayBufferViews: options.compactArrayBufferViews,
+		depthLimit: options.depthLimit,
 		plugins,
 		disabledFeatures: options.disabledFeatures,
 		refs: options.refs
@@ -6621,8 +7043,11 @@ async function toCrossJSONAsync(source, options = {}) {
 }
 function crossSerializeStream(source, options) {
 	const plugins = resolvePlugins(options.plugins);
+	const onSerialize = options.onSerialize;
+	const scopeId = options.scopeId;
 	const ctx = createStreamParserContext({
 		compactArrayBufferViews: options.compactArrayBufferViews,
+		depthLimit: options.depthLimit,
 		plugins,
 		refs: options.refs,
 		disabledFeatures: options.disabledFeatures,
@@ -6630,17 +7055,10 @@ function crossSerializeStream(source, options) {
 			const serial = createCrossSerializerContext({
 				plugins,
 				features: ctx.base.features,
-				scopeId: options.scopeId,
+				scopeId,
 				markedRefs: ctx.base.marked
 			});
-			let serialized;
-			try {
-				serialized = serializeTopCross(serial, node);
-			} catch (err) {
-				if (options.onError) options.onError(err);
-				return;
-			}
-			options.onSerialize(serialized, initial);
+			return onSerialize(serializeTopCross(serial, node), initial);
 		},
 		onError: options.onError,
 		onDone: options.onDone
@@ -6664,11 +7082,11 @@ function toCrossJSONStream(source, options) {
 	return destroyStreamParse.bind(null, ctx);
 }
 function fromJSON(source, options = {}) {
-	var _source$f;
 	const plugins = resolvePlugins(options.plugins);
-	const disabledFeatures = options.disabledFeatures || 0;
-	const sourceFeatures = (_source$f = source.f) !== null && _source$f !== void 0 ? _source$f : 127;
+	const disabledFeatures = options.disabledFeatures ?? 0;
+	const sourceFeatures = source.f ?? 127;
 	return deserializeTop(createVanillaDeserializerContext({
+		depthLimit: options.depthLimit,
 		maxBase64Length: options.maxBase64Length,
 		plugins,
 		markedRefs: source.m,
@@ -6676,8 +7094,7 @@ function fromJSON(source, options = {}) {
 		disabledFeatures
 	}), source.t);
 }
-//#endregion
-//#region node_modules/react/cjs/react-jsx-runtime.production.js
+// node_modules/react/cjs/react-jsx-runtime.production.js
 /**
 * @license React
 * react-jsx-runtime.production.js
@@ -6711,13 +7128,11 @@ var require_react_jsx_runtime_production = /* @__PURE__ */ __commonJSMin(((expor
 	exports.jsx = jsxProd;
 	exports.jsxs = jsxProd;
 }));
-//#endregion
-//#region node_modules/react/jsx-runtime.js
+// node_modules/react/jsx-runtime.js
 var require_jsx_runtime = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = require_react_jsx_runtime_production();
 }));
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/CatchBoundary.js
+// node_modules/@tanstack/react-router/dist/esm/CatchBoundary.js
 var import_jsx_runtime = require_jsx_runtime();
 var CatchBoundary = class extends import_react.Component {
 	constructor(..._args) {
@@ -6795,8 +7210,7 @@ function ErrorComponent({ error }) {
 		]
 	});
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/ClientOnly.js
+// node_modules/@tanstack/react-router/dist/esm/ClientOnly.js
 var getSnapshot = () => true;
 var getServerSnapshot = () => false;
 /**
@@ -6826,11 +7240,9 @@ function useHydrated(enabled = true) {
 function subscribe() {
 	return () => {};
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/routerContext.js
+// node_modules/@tanstack/react-router/dist/esm/routerContext.js
 var routerContext = import_react.createContext(null);
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/useRouter.js
+// node_modules/@tanstack/react-router/dist/esm/useRouter.js
 /**
 * Access the current TanStack Router instance from React context.
 * Must be used within a `RouterProvider`.
@@ -6846,12 +7258,9 @@ function useRouter(opts) {
 	if (!value);
 	return value;
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/matchContext.js
 var matchContext = import_react.createContext(void 0);
 var dummyMatchContext = import_react.createContext(void 0);
-//#endregion
-//#region node_modules/@tanstack/store/dist/alien.js
+// node_modules/@tanstack/store/dist/alien.js
 /* @__NO_SIDE_EFFECTS__ */
 function createReactiveSystem({ update, notify, unwatched }) {
 	return {
@@ -7044,8 +7453,7 @@ function purgeDeps(sub) {
 	let dep = depsTail !== void 0 ? depsTail.nextDep : sub.deps;
 	while (dep !== void 0) dep = unlink(dep, sub);
 }
-//#endregion
-//#region node_modules/use-sync-external-store/cjs/use-sync-external-store-shim.production.js
+// node_modules/use-sync-external-store/cjs/use-sync-external-store-shim.production.js
 /**
 * @license React
 * use-sync-external-store-shim.production.js
@@ -7104,13 +7512,11 @@ var require_use_sync_external_store_shim_production = /* @__PURE__ */ __commonJS
 	var shim = "undefined" === typeof window || "undefined" === typeof window.document || "undefined" === typeof window.document.createElement ? useSyncExternalStore$1 : useSyncExternalStore$2;
 	exports.useSyncExternalStore = void 0 !== React.useSyncExternalStore ? React.useSyncExternalStore : shim;
 }));
-//#endregion
-//#region node_modules/use-sync-external-store/shim/index.js
+// node_modules/use-sync-external-store/shim/index.js
 var require_shim = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = require_use_sync_external_store_shim_production();
 }));
-//#endregion
-//#region node_modules/use-sync-external-store/cjs/use-sync-external-store-shim/with-selector.production.js
+// node_modules/use-sync-external-store/cjs/use-sync-external-store-shim/with-selector.production.js
 /**
 * @license React
 * use-sync-external-store-shim/with-selector.production.js
@@ -7202,8 +7608,7 @@ function useMatch(opts) {
 		return opts.select ? opts.select(match) : match;
 	}
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/useLoaderData.js
+// node_modules/@tanstack/react-router/dist/esm/useLoaderData.js
 /**
 * Read and select the current route's loader data with type‑safety.
 *
@@ -7225,8 +7630,7 @@ function useLoaderData(opts) {
 		}
 	});
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/useLoaderDeps.js
+// node_modules/@tanstack/react-router/dist/esm/useLoaderDeps.js
 /**
 * Read and select the current route's loader dependencies object.
 *
@@ -7247,8 +7651,7 @@ function useLoaderDeps(opts) {
 		}
 	});
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/useParams.js
+// node_modules/@tanstack/react-router/dist/esm/useParams.js
 /**
 * Access the current route's path parameters with type-safety.
 *
@@ -7273,8 +7676,7 @@ function useParams(opts) {
 		}
 	});
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/useSearch.js
+// node_modules/@tanstack/react-router/dist/esm/useSearch.js
 /**
 * Read and select the current route's search parameters with type-safety.
 *
@@ -7298,8 +7700,7 @@ function useSearch(opts) {
 		}
 	});
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/useNavigate.js
+// node_modules/@tanstack/react-router/dist/esm/useNavigate.js
 /**
 * Imperative navigation hook.
 *
@@ -7323,8 +7724,7 @@ function useNavigate(_defaultOpts) {
 		});
 	}, [_defaultOpts?.from, router]);
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/useRouteContext.js
+// node_modules/@tanstack/react-router/dist/esm/useRouteContext.js
 function useRouteContext(opts) {
 	return useMatch({
 		...opts,
@@ -7337,15 +7737,14 @@ function resolveExternalLink(to, protocolAllowlist) {
 	if (!protocolAllowlist.has(scheme)) return null;
 	return to;
 }
-function resolveIsActive(location, next, activeOptions, basepath, isHydrated) {
+function resolveIsActive(location, next, activeOptions, basepath) {
 	const currentPath = removeTrailingSlash(location.pathname, basepath);
 	const nextPath = removeTrailingSlash(next.pathname, basepath);
 	if (activeOptions?.exact ? currentPath !== nextPath : !(currentPath.startsWith(nextPath) && (currentPath.length === nextPath.length || currentPath[nextPath.length] === "/"))) return false;
 	if (activeOptions?.includeSearch ?? true) {
 		if (!deepEqual(location.search, next.search, !activeOptions?.exact, activeOptions?.explicitUndefined)) return false;
 	}
-	if (activeOptions?.includeHash) return isHydrated && location.hash === next.hash;
-	return true;
+	return !activeOptions?.includeHash || location.hash === next.hash;
 }
 function useLinkProps(options, forwardedRef, host) {
 	return getServerLinkProps(useRouter(), options, forwardedRef, host);
@@ -7361,7 +7760,6 @@ var ROUTER_OPTION_KEYS = /* @__PURE__ */ new Set([
 	"mask",
 	"from",
 	"unsafeRelative",
-	"_fromLocation",
 	"reloadDocument",
 	"preload",
 	"preloadDelay",
@@ -7422,7 +7820,7 @@ function getServerLinkProps(router, options, forwardedRef, host) {
 		props.href = externalLink;
 		return props;
 	}
-	return applyLinkState(props, options, !!next && !(!disabled && !hrefOption) && resolveIsActive(router.stores.location.get(), next, activeOptions, router.basepath, false), hrefOption, linkDisabled, host);
+	return applyLinkState(props, options, !!next && !(!disabled && !hrefOption) && !activeOptions?.includeHash && resolveIsActive(router.stores.location.get(), next, activeOptions, router.basepath), hrefOption, linkDisabled, host);
 }
 function getHrefOption(next, router, disabled) {
 	if (disabled) return;
@@ -7463,8 +7861,7 @@ function areLinkPropsEqual(prev, next) {
 	for (const _key in prev) extraKeys--;
 	return extraKeys === 0;
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/route.js
+// node_modules/@tanstack/react-router/dist/esm/route.js
 var Route = class extends BaseRoute {
 	/**
 	* @deprecated Use the `createRoute` function instead.
@@ -7600,8 +7997,7 @@ var RootRoute = class extends BaseRootRoute {
 function createRootRoute(options) {
 	return new RootRoute(options);
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/fileRoute.js
+// node_modules/@tanstack/react-router/dist/esm/fileRoute.js
 /**
 * Creates a file-based Route factory for a given path.
 *
@@ -7620,8 +8016,7 @@ function createFileRoute(path) {
 		return route;
 	};
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/lazyRouteComponent.js
+// node_modules/@tanstack/react-router/dist/esm/lazyRouteComponent.js
 /**
 * Wrap a dynamic import to create a route component that supports
 * `.preload()` and friendly reload-on-module-missing behavior.
@@ -7652,15 +8047,16 @@ function lazyRouteComponent(importer, exportName) {
 			if (isModuleNotFoundError(error) && false);
 			throw error;
 		}
-		if (!comp) if (reactUse) reactUse(load());
-		else throw load();
+		if (!comp) {
+			if (reactUse) reactUse(load());
+			else throw load();
+		}
 		return import_react.createElement(comp, props);
 	};
 	lazyComp.preload = load;
 	return lazyComp;
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/not-found.js
+// node_modules/@tanstack/react-router/dist/esm/not-found.js
 function CatchNotFound(props) {
 	const router = useRouter();
 	{
@@ -7682,8 +8078,7 @@ function CatchNotFound(props) {
 function DefaultGlobalNotFound() {
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "Not Found" });
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/ScriptOnce.js
+// node_modules/@tanstack/react-router/dist/esm/ScriptOnce.js
 /**
 * Server-only helper to emit a script tag exactly once during SSR.
 */
@@ -7694,8 +8089,7 @@ function ScriptOnce({ children }) {
 		dangerouslySetInnerHTML: { __html: children + ";document.currentScript.remove()" }
 	});
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/renderRouteNotFound.js
+// node_modules/@tanstack/react-router/dist/esm/renderRouteNotFound.js
 /**
 * Renders a not found component for a route when no matching route is found.
 *
@@ -7711,11 +8105,9 @@ function renderRouteNotFound(router, route, data) {
 	}
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(route.options.notFoundComponent, { ...data });
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/scroll-restoration-inline.js
+// node_modules/@tanstack/router-core/dist/esm/scroll-restoration-inline.js
 var scroll_restoration_inline_default = "function(a,f){let l;try{l=JSON.parse(sessionStorage.getItem(a)||\"{}\")}catch{return}const n=l?.[f||history.state?.__TSR_key];let c=!1;for(const t in n){const e=n[t],o=e?.scrollX,s=e?.scrollY;if(Number.isFinite(o)&&Number.isFinite(s)){if(t===\"window\")scrollTo(o,s),c=!0;else if(t)try{const r=document.querySelector(t);r&&(r.scrollLeft=o,r.scrollTop=s)}catch{}}}if(c)return;const i=location.hash.slice(1);if(i){const t=history.state?.__hashScrollIntoViewOptions??!0;if(t){const e=document.getElementById(i);e&&e.scrollIntoView(t)}return}scrollTo(0,0)}";
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/scroll-restoration-script/server.js
+// node_modules/@tanstack/router-core/dist/esm/scroll-restoration-script/server.js
 var defaultInlineScrollRestorationScript = `(${scroll_restoration_inline_default})(${escapeHtml(JSON.stringify(storageKey))})`;
 function getScrollRestorationScript(key) {
 	if (key === void 0) return defaultInlineScrollRestorationScript;
@@ -7730,15 +8122,13 @@ function getScrollRestorationScriptForRouter(router) {
 	if (userKey === defaultGetScrollRestorationKey(location)) return defaultInlineScrollRestorationScript;
 	return getScrollRestorationScript(userKey);
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/scroll-restoration.js
+// node_modules/@tanstack/react-router/dist/esm/scroll-restoration.js
 function ScrollRestoration() {
 	const script = getScrollRestorationScriptForRouter(useRouter());
 	if (!script) return null;
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ScriptOnce, { children: script });
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/Match.js
+// node_modules/@tanstack/react-router/dist/esm/Match.js
 function renderPending(router, route) {
 	const PendingComponent = route?.options.pendingComponent ?? router.options.defaultPendingComponent;
 	if (!PendingComponent) return null;
@@ -7747,12 +8137,9 @@ function renderPending(router, route) {
 var canWrapInSuspense = (router, route, ssr) => !route.isRoot || route.options.shellComponent || route.options.wrapInSuspense || ssr === false || ssr === "data-only" || false;
 var Match = import_react.memo(function MatchImpl({ routeId }) {
 	const router = useRouter();
-	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MatchView, {
-		router,
-		match: router.stores.byRoute.get(routeId).get()
-	});
+	return matchView(router, router.stores.byRoute.get(routeId).get());
 });
-function MatchView({ router, match }) {
+function matchView(router, match) {
 	const route = router.routesById[match.routeId];
 	const pendingElement = renderPending(router, route);
 	const routeErrorComponent = route.options.errorComponent ?? router.options.defaultErrorComponent;
@@ -7790,10 +8177,13 @@ function MatchView({ router, match }) {
 		children: content
 	});
 	const scrollRestoration = route.parentRoute?.id === "__root__" && router.options.scrollRestoration ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ScrollRestoration, {}) : null;
-	const ShellComponent = route.isRoot ? route.options.shellComponent : void 0;
-	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(matchContext.Provider, {
+	const ShellComponent = route.isRoot && route.options.shellComponent;
+	return ShellComponent ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(matchContext.Provider, {
 		value: match.routeId,
-		children: ShellComponent ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(ShellComponent, { children: [content, scrollRestoration] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [content, scrollRestoration] })
+		children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(ShellComponent, { children: [content, scrollRestoration] })
+	}) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(matchContext.Provider, {
+		value: match.routeId,
+		children: [content, scrollRestoration]
 	});
 }
 var MatchInner = import_react.memo(function MatchInnerImpl({ match }) {
@@ -7830,11 +8220,14 @@ var MatchInner = import_react.memo(function MatchInnerImpl({ match }) {
 		return renderPending(router, route);
 	}
 	if (match.status === "notFound") return renderRouteNotFound(router, route, match.error);
-	if (match.status === "error") return /* @__PURE__ */ (0, import_jsx_runtime.jsx)((route.options.errorComponent ?? router.options.defaultErrorComponent) || ErrorComponent, {
-		error: match.error,
-		reset: void 0,
-		info: { componentStack: "" }
-	});
+	if (match.status === "error") {
+		const RouteErrorComponent = (route.options.errorComponent ?? router.options.defaultErrorComponent) || ErrorComponent;
+		return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(RouteErrorComponent, {
+			error: match.error,
+			reset: void 0,
+			info: { componentStack: "" }
+		});
+	}
 	return out;
 });
 /**
@@ -7866,15 +8259,13 @@ var Outlet = import_react.memo(function OutletImpl() {
 	});
 	return nextMatch;
 });
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/Transitioner.js
+// node_modules/@tanstack/react-router/dist/esm/Transitioner.js
 function settleOwner(owner, rendered) {
 	const settle = owner[1];
 	owner.length = 0;
 	settle?.(rendered);
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/Matches.js
+// node_modules/@tanstack/react-router/dist/esm/Matches.js
 /**
 * Internal component that renders the router's active match tree with
 * suspense, error, and not-found boundaries. Rendered by `RouterProvider`.
@@ -7902,8 +8293,7 @@ function MatchesInner() {
 		children: matchComponent
 	});
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/routerStores.js
+// node_modules/@tanstack/react-router/dist/esm/routerStores.js
 var getStoreFactory = (opts) => {
 	return {
 		createMutableStore: createNonReactiveMutableStore,
@@ -7911,8 +8301,7 @@ var getStoreFactory = (opts) => {
 		batch: (fn) => fn()
 	};
 };
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/router.js
+// node_modules/@tanstack/react-router/dist/esm/router.js
 /**
 * Creates a new Router instance for React.
 *
@@ -7932,8 +8321,7 @@ var Router = class extends RouterCore {
 		super(options, getStoreFactory);
 	}
 };
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/RouterProvider.js
+// node_modules/@tanstack/react-router/dist/esm/RouterProvider.js
 /**
 * Low-level provider that places the router into React context and optionally
 * updates router options from props. Most apps should use `RouterProvider`.
@@ -7970,8 +8358,7 @@ function RouterProvider({ router, ...rest }) {
 		children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Matches, {})
 	});
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/Asset.js
+// node_modules/@tanstack/react-router/dist/esm/Asset.js
 var noopScriptHandler = () => {};
 function setScriptAttrs(script, attrs) {
 	if (!attrs) return;
@@ -8066,8 +8453,7 @@ function Script({ attrs, children, preventScriptHoist }) {
 	});
 	return null;
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/headContentUtils.js
+// node_modules/@tanstack/react-router/dist/esm/headContentUtils.js
 function buildTagsFromMatches(router, nonce, matches, assetCrossOrigin) {
 	matches = _getAssetMatches(matches);
 	const routeMeta = matches.map((match) => match.meta).filter((meta) => meta !== void 0);
@@ -8094,8 +8480,10 @@ function buildTagsFromMatches(router, nonce, matches, assetCrossOrigin) {
 			} catch {}
 			else {
 				const attribute = m.name ?? m.property;
-				if (attribute) if (metaByAttribute[attribute]) continue;
-				else metaByAttribute[attribute] = true;
+				if (attribute) {
+					if (metaByAttribute[attribute]) continue;
+					else metaByAttribute[attribute] = true;
+				}
 				resultMeta.push({
 					tag: "meta",
 					attrs: {
@@ -8196,8 +8584,7 @@ var useTags = (assetCrossOrigin) => {
 	const nonce = router.options.ssr?.nonce;
 	return buildTagsFromMatches(router, nonce, router.stores.matches.get(), assetCrossOrigin);
 };
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/HeadContent.js
+// node_modules/@tanstack/react-router/dist/esm/HeadContent.js
 /**
 * Render route-managed head tags (title, meta, links, styles, head scripts).
 * Place inside the document head of your app shell.
@@ -8212,8 +8599,7 @@ function HeadContent(props) {
 		nonce
 	})) });
 }
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/Scripts.js
+// node_modules/@tanstack/react-router/dist/esm/Scripts.js
 var routeScriptAttrs = { suppressHydrationWarning: true };
 /**
 * Render body script tags collected from route matches and SSR manifests.
@@ -8239,14 +8625,11 @@ function renderScripts(scripts) {
 		key: `tsr-scripts-${asset.tag}-${i}`
 	})) });
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/ssr/constants.js
+// node_modules/@tanstack/router-core/dist/esm/ssr/constants.js
 var GLOBAL_TSR = "$_TSR";
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/ssr/tsrScript.js
+// node_modules/@tanstack/router-core/dist/esm/ssr/tsrScript.js
 var tsrScript_default = "self.$_TSR={h(){this.hydrated=!0,this.c()},e(){this.streamEnded=!0,this.c()},c(){this.hydrated&&this.streamEnded&&(delete self.$_TSR,delete self.$R.tsr)},p(e){this.initialized?e():this.buffer.push(e)},buffer:[]}";
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/ssr/htmlBoundaryScanner.js
+// node_modules/@tanstack/router-core/dist/esm/ssr/htmlBoundaryScanner.js
 var textEncoder = new TextEncoder();
 var DOCUMENT_CLOSE = "</body></html>";
 var SCRIPT_CLOSE = "<\/script>";
@@ -8264,18 +8647,20 @@ function advanceByteMatcher(matcher, value, startIndex = 0, findLast = false) {
 	let lastMatchEnd;
 	let index = startIndex;
 	while (index < value.length) {
-		if (matched === 0) if (anchorIndex > 0 && index < value.length - anchorIndex) {
-			const anchor = value.indexOf(pattern[anchorIndex], index + anchorIndex);
-			if (anchor < 0) {
-				index = value.length - anchorIndex;
-				continue;
-			}
-			index = anchor - anchorIndex;
-		} else {
-			index = value.indexOf(pattern[0], index);
-			if (index < 0) {
-				matcher.matched = matched;
-				return lastMatchEnd;
+		if (matched === 0) {
+			if (anchorIndex > 0 && index < value.length - anchorIndex) {
+				const anchor = value.indexOf(pattern[anchorIndex], index + anchorIndex);
+				if (anchor < 0) {
+					index = value.length - anchorIndex;
+					continue;
+				}
+				index = anchor - anchorIndex;
+			} else {
+				index = value.indexOf(pattern[0], index);
+				if (index < 0) {
+					matcher.matched = matched;
+					return lastMatchEnd;
+				}
 			}
 		}
 		const byte = value[index];
@@ -8318,8 +8703,7 @@ function getExactBytesPrefixAtEnd(value, pattern, startIndex = 0) {
 		return candidateStart;
 	}
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/ssr/hydrationScripts.js
+// node_modules/@tanstack/router-core/dist/esm/ssr/hydrationScripts.js
 var encoder = new TextEncoder();
 var SOURCE_SEPARATOR = ";";
 var MAX_INITIAL_SOURCE_CODE_UNITS = 16384;
@@ -8694,8 +9078,7 @@ var HydrationScriptsOwner = class {
 function createHydrationScripts(nonce, initialSources) {
 	return new HydrationScriptsOwner(nonce, initialSources);
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/ssr/handlerCallback.js
+// node_modules/@tanstack/router-core/dist/esm/ssr/handlerCallback.js
 function isSsrResponse(value) {
 	if (typeof value !== "object" || value === null || !("response" in value) || !(value.response instanceof Response) || !("serverSsrCleanup" in value)) return false;
 	if (value.serverSsrCleanup === "none") return true;
@@ -8762,13 +9145,6 @@ function bindSsrResponseToRequest(router, result, signal) {
 	});
 	return ssrResponse;
 }
-function replaceSsrResponse(result, response, reason) {
-	disposeSsrResponse(result, reason);
-	return {
-		response,
-		serverSsrCleanup: "none"
-	};
-}
 function stripSsrResponseBody(result, reason) {
 	const ssrResponse = normalizeSsrResponse(result);
 	disposeSsrResponse(ssrResponse, reason);
@@ -8780,8 +9156,7 @@ function stripSsrResponseBody(result, reason) {
 function defineHandlerCallback(handler) {
 	return handler;
 }
-//#endregion
-//#region node_modules/@tanstack/router-core/dist/esm/ssr/transformStreamWithRouter.js
+// node_modules/@tanstack/router-core/dist/esm/ssr/transformStreamWithRouter.js
 var DEFAULT_SERIALIZATION_TIMEOUT_MS = 6e4;
 var MIN_APPLICATION_STRING_CHUNK_BYTES = 256;
 var MAX_APPLICATION_STRING_CHUNK_BYTES = 65536;
@@ -9272,8 +9647,7 @@ function makeMergeStream(serverSsr, reader, hydrationOutput, opts) {
 	disarmLifecycle = armStreamLifecycle(serverSsr, opts, () => terminal, terminate);
 	return stream;
 }
-//#endregion
-//#region node_modules/react-dom/cjs/react-dom.production.js
+// node_modules/react-dom/cjs/react-dom.production.js
 /**
 * @license React
 * react-dom.production.js
@@ -9423,10 +9797,9 @@ var require_react_dom_production = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.useFormStatus = function() {
 		return ReactSharedInternals.H.useHostTransitionStatus();
 	};
-	exports.version = "19.3.0";
+	exports.version = "19.3.1";
 }));
-//#endregion
-//#region node_modules/react-dom/index.js
+// node_modules/react-dom/index.js
 var require_react_dom = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	function checkDCE() {
 		if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ === "undefined" || typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE !== "function") return;
@@ -9439,8 +9812,7 @@ var require_react_dom = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	checkDCE();
 	module.exports = require_react_dom_production();
 }));
-//#endregion
-//#region node_modules/react-dom/cjs/react-dom-server-legacy.node.production.js
+// node_modules/react-dom/cjs/react-dom-server-legacy.node.production.js
 /**
 * @license React
 * react-dom-server-legacy.node.production.js
@@ -13531,10 +13903,9 @@ var require_react_dom_server_legacy_node_production = /* @__PURE__ */ __commonJS
 	exports.renderToString = function(children, options) {
 		return renderToStringImpl(children, options, !1, "The server used \"renderToString\" which does not support Suspense. If you intended for this Suspense boundary to render the fallback content on the server consider throwing an Error somewhere within the Suspense boundary. If you intended to have the server wait for the suspended component please switch to \"renderToPipeableStream\" which supports Suspense on the server");
 	};
-	exports.version = "19.3.0";
+	exports.version = "19.3.1";
 }));
-//#endregion
-//#region node_modules/react-dom/cjs/react-dom-server.node.production.js
+// node_modules/react-dom/cjs/react-dom-server.node.production.js
 /**
 * @license React
 * react-dom-server.node.production.js
@@ -13577,6 +13948,8 @@ var require_react_dom_server_node_production = /* @__PURE__ */ __commonJSMin(((e
 	}
 	var REACT_OPTIMISTIC_KEY = Symbol.for("react.optimistic_key");
 	var isArrayImpl = Array.isArray;
+	var hasOwnProperty = Object.prototype.hasOwnProperty;
+	var supportsArrayBufferDetached = hasOwnProperty.call(ArrayBuffer.prototype, "detached");
 	var scheduleMicrotask = queueMicrotask;
 	function flushBuffered(destination) {
 		"function" === typeof destination.flush && destination.flush();
@@ -13596,7 +13969,9 @@ var require_react_dom_server_node_production = /* @__PURE__ */ __commonJSMin(((e
 				read < chunk.length && (writeToDestination(destination, currentView.subarray(0, writtenBytes)), currentView = /* @__PURE__ */ new Uint8Array(4096), writtenBytes = textEncoder.encodeInto(chunk.slice(read), currentView).written);
 				4096 === writtenBytes && (writeToDestination(destination, currentView), currentView = /* @__PURE__ */ new Uint8Array(4096), writtenBytes = 0);
 			}
-		} else 0 !== chunk.byteLength && (4096 < chunk.byteLength ? (0 < writtenBytes && (writeToDestination(destination, currentView.subarray(0, writtenBytes)), currentView = /* @__PURE__ */ new Uint8Array(4096), writtenBytes = 0), writeToDestination(destination, chunk)) : (target = currentView.length - writtenBytes, target < chunk.byteLength && (0 === target ? writeToDestination(destination, currentView) : (currentView.set(chunk.subarray(0, target), writtenBytes), writtenBytes += target, writeToDestination(destination, currentView), chunk = chunk.subarray(target)), currentView = /* @__PURE__ */ new Uint8Array(4096), writtenBytes = 0), currentView.set(chunk, writtenBytes), writtenBytes += chunk.byteLength, 4096 === writtenBytes && (writeToDestination(destination, currentView), currentView = /* @__PURE__ */ new Uint8Array(4096), writtenBytes = 0)));
+		} else if (0 === chunk.byteLength) {
+			if (supportsArrayBufferDetached && chunk.buffer.detached) throw Error("Cannot transport a detached buffer. This usually happens when trying to transport multiple buffer-spanning views on the same underyling buffer. Either reuse the exact same view by identity or copy the underlying buffer manually via `view.slice()`.");
+		} else 4096 < chunk.byteLength ? (0 < writtenBytes && (writeToDestination(destination, currentView.subarray(0, writtenBytes)), currentView = /* @__PURE__ */ new Uint8Array(4096), writtenBytes = 0), writeToDestination(destination, chunk)) : (target = currentView.length - writtenBytes, target < chunk.byteLength && (0 === target ? writeToDestination(destination, currentView) : (currentView.set(chunk.subarray(0, target), writtenBytes), writtenBytes += target, writeToDestination(destination, currentView), chunk = chunk.subarray(target)), currentView = /* @__PURE__ */ new Uint8Array(4096), writtenBytes = 0), currentView.set(chunk, writtenBytes), writtenBytes += chunk.byteLength, 4096 === writtenBytes && (writeToDestination(destination, currentView), currentView = /* @__PURE__ */ new Uint8Array(4096), writtenBytes = 0));
 	}
 	function writeToDestination(destination, view) {
 		destination = destination.write(view);
@@ -13620,7 +13995,6 @@ var require_react_dom_server_node_production = /* @__PURE__ */ __commonJSMin(((e
 		return "string" === typeof chunk ? Buffer.byteLength(chunk, "utf8") : chunk.byteLength;
 	}
 	var assign = Object.assign;
-	var hasOwnProperty = Object.prototype.hasOwnProperty;
 	var VALID_ATTRIBUTE_NAME_REGEX = RegExp("^[:A-Z_a-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD][:A-Z_a-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD\\-.0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040]*$");
 	var illegalAttributeNameCache = {};
 	var validatedAttributeNameCache = {};
@@ -17875,7 +18249,7 @@ var require_react_dom_server_node_production = /* @__PURE__ */ __commonJSMin(((e
 	}
 	function ensureCorrectIsomorphicReactVersion() {
 		var isomorphicReactPackageVersion = React.version;
-		if ("19.3.0" !== isomorphicReactPackageVersion) throw Error("Incompatible React versions: The \"react\" and \"react-dom\" packages must have the exact same version. Instead got:\n  - react:      " + (isomorphicReactPackageVersion + "\n  - react-dom:  19.3.0\nLearn more: https://react.dev/warnings/version-mismatch"));
+		if ("19.3.1" !== isomorphicReactPackageVersion) throw Error("Incompatible React versions: The \"react\" and \"react-dom\" packages must have the exact same version. Instead got:\n  - react:      " + (isomorphicReactPackageVersion + "\n  - react-dom:  19.3.1\nLearn more: https://react.dev/warnings/version-mismatch"));
 	}
 	ensureCorrectIsomorphicReactVersion();
 	function createDrainHandler(destination, request) {
@@ -18127,10 +18501,9 @@ var require_react_dom_server_node_production = /* @__PURE__ */ __commonJSMin(((e
 			}
 		};
 	};
-	exports.version = "19.3.0";
+	exports.version = "19.3.1";
 }));
-//#endregion
-//#region node_modules/isbot/index.mjs
+// node_modules/isbot/index.mjs
 var import_server_node = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((exports) => {
 	var l = require_react_dom_server_legacy_node_production();
 	var s = require_react_dom_server_node_production();
@@ -18159,8 +18532,7 @@ function isBot(userAgent) {
 	return isNonEmptyString(userAgent) && getPattern().test(userAgent);
 }
 var isbot = isBot;
-//#endregion
-//#region node_modules/@tanstack/react-router/dist/esm/ssr/renderRouterToStream.js
+// node_modules/@tanstack/react-router/dist/esm/ssr/renderRouterToStream.js
 var renderRouterToStream = async ({ request, router, responseHeaders, children }) => {
 	const signal = request.signal;
 	if (signal.aborted) {
@@ -18241,5 +18613,4 @@ var renderRouterToStream = async ({ request, router, responseHeaders, children }
 		throw error;
 	}
 };
-//#endregion
-export { getScriptPreloadAttrs as A, isDangerousProtocol as B, crossSerializeStream as C, toCrossJSONStream as D, toCrossJSONAsync as E, _getRenderedMatches as F, rootRouteId as G, dehydrateSsrMatchId as H, executeRewriteInput as I, isNotFound as K, invariant as L, resolveManifestAssetLink as M, resolveManifestCssLink as N, createInlineCssPlaceholderAsset as O, waitForReason as P, createSieveCache as R, createStream as S, isStream as T, isRedirect as U, isPromise as V, parseRedirect as W, createFileRoute as _, isSsrResponse as a, require_jsx_runtime as b, stripSsrResponseBody as c, Scripts as d, HeadContent as f, lazyRouteComponent as g, Outlet as h, disposeSsrResponse as i, getStylesheetHref as j, createInlineCssStyleAsset as k, createHydrationScripts as l, createRouter as m, bindSsrResponseToRequest as n, normalizeSsrResponse as o, RouterProvider as p, require_react as q, defineHandlerCallback as r, replaceSsrResponse as s, renderRouterToStream as t, GLOBAL_TSR as u, createRootRoute as v, fromJSON as w, createPlugin as x, useRouter as y, decodePath as z };
+export { resolveManifestAssetLink as A, isRedirect as B, fromJSON as C, createInlineCssStyleAsset as D, createInlineCssPlaceholderAsset as E, createSieveCache as F, rootRouteId as H, decodePath as I, isDangerousProtocol as L, waitForReason as M, _getRenderedMatches as N, getScriptPreloadAttrs as O, invariant as P, isPromise as R, crossSerializeStream as S, toCrossJSONStream as T, isNotFound as U, parseRedirect as V, require_react as W, createRootRoute as _, isSsrResponse as a, createPlugin as b, createHydrationScripts as c, HeadContent as d, RouterProvider as f, createFileRoute as g, lazyRouteComponent as h, disposeSsrResponse as i, resolveManifestCssLink as j, getStylesheetHref as k, GLOBAL_TSR as l, Outlet as m, bindSsrResponseToRequest as n, normalizeSsrResponse as o, createRouter as p, defineHandlerCallback as r, stripSsrResponseBody as s, renderRouterToStream as t, Scripts as u, useRouter as v, toCrossJSONAsync as w, createStream as x, require_jsx_runtime as y, dehydrateSsrMatchId as z };

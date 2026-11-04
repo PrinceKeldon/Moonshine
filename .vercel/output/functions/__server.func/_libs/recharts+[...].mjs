@@ -1,5 +1,5 @@
-import { i as __toESM, n as __exportAll } from "../_runtime.mjs";
-import { q as require_react } from "./@tanstack/react-router+[...].mjs";
+import { o as __toESM, r as __exportAll } from "../_runtime.mjs";
+import { W as require_react } from "./@tanstack/react-router+[...].mjs";
 import { t as clsx } from "./clsx.mjs";
 import { C as require_isFunction, S as require_memoize, _ as require_isNaN, a as require_range, b as require_isNil, c as require_last, d as require_min, f as require_max, g as require_upperFirst, h as require_uniqBy, i as require_some, l as require_isEqual, m as require_sortBy, n as require_every, o as require_isBoolean, p as require_throttle, r as require_mapValues, s as require_isPlainObject, t as require_find, u as require_flatMap, v as require_isNumber, w as require_isObject, x as require_get, y as require_isString } from "./lodash.mjs";
 import { t as require_react_is } from "./react-is.mjs";
@@ -8,7 +8,7 @@ import { C as linear, D as implicit, E as point, O as ordinal, S as identity$1, 
 import { t as decimal_default } from "./decimal.js-light.mjs";
 import { t as es6_default } from "./react-smooth.mjs";
 import { t as require_eventemitter3 } from "./eventemitter3.mjs";
-//#region node_modules/recharts/es6/util/DataUtils.js
+// node_modules/recharts/es6/util/DataUtils.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_isString = /* @__PURE__ */ __toESM(require_isString());
 var import_isNaN = /* @__PURE__ */ __toESM(require_isNaN());
@@ -106,8 +106,7 @@ var compareValues = function compareValues(a, b) {
 	if (a instanceof Date && b instanceof Date) return a.getTime() - b.getTime();
 	return String(a).localeCompare(String(b));
 };
-//#endregion
-//#region node_modules/recharts/es6/util/ShallowEqual.js
+// node_modules/recharts/es6/util/ShallowEqual.js
 var import_isObject = /* @__PURE__ */ __toESM(require_isObject());
 var import_isFunction = /* @__PURE__ */ __toESM(require_isFunction());
 var import_react_is = require_react_is();
@@ -116,8 +115,7 @@ function shallowEqual(a, b) {
 	for (var _key in b) if ({}.hasOwnProperty.call(b, _key) && !{}.hasOwnProperty.call(a, _key)) return false;
 	return true;
 }
-//#endregion
-//#region node_modules/recharts/es6/util/types.js
+// node_modules/recharts/es6/util/types.js
 function _typeof$39(o) {
 	"@babel/helpers - typeof";
 	return _typeof$39 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o) {
@@ -679,8 +677,7 @@ var adaptEventsOfChild = function adaptEventsOfChild(props, data, index) {
 	});
 	return out;
 };
-//#endregion
-//#region node_modules/recharts/es6/util/ReactUtils.js
+// node_modules/recharts/es6/util/ReactUtils.js
 var _excluded$15 = ["children"];
 var _excluded2$5 = ["children"];
 function _objectWithoutProperties$15(source, excluded) {
@@ -964,8 +961,7 @@ var getReactEventByType = function getReactEventByType(e) {
 var parseChildIndex = function parseChildIndex(child, children) {
 	return toArray(children).indexOf(child);
 };
-//#endregion
-//#region node_modules/recharts/es6/container/Surface.js
+// node_modules/recharts/es6/container/Surface.js
 /**
 * @fileOverview Surface
 */
@@ -1030,8 +1026,7 @@ function Surface(props) {
 		viewBox: "".concat(svgView.x, " ").concat(svgView.y, " ").concat(svgView.width, " ").concat(svgView.height)
 	}), /*#__PURE__*/ import_react.createElement("title", null, title), /*#__PURE__*/ import_react.createElement("desc", null, desc), children);
 }
-//#endregion
-//#region node_modules/recharts/es6/container/Layer.js
+// node_modules/recharts/es6/container/Layer.js
 var _excluded$13 = ["children", "className"];
 function _extends$24() {
 	_extends$24 = Object.assign ? Object.assign.bind() : function(target) {
@@ -1072,13 +1067,11 @@ var Layer = /*#__PURE__*/ import_react.forwardRef(function(props, ref) {
 	var layerClass = clsx("recharts-layer", className);
 	return /*#__PURE__*/ import_react.createElement("g", _extends$24({ className: layerClass }, filterProps(others, true), { ref }), children);
 });
-//#endregion
-//#region node_modules/recharts/es6/util/LogUtils.js
+// node_modules/recharts/es6/util/LogUtils.js
 var warn = function warn(condition, format) {
 	for (var _len = arguments.length, args = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) args[_key - 2] = arguments[_key];
 };
-//#endregion
-//#region node_modules/recharts/es6/shape/Symbols.js
+// node_modules/recharts/es6/shape/Symbols.js
 /**
 * @fileOverview Curve
 */
@@ -1231,8 +1224,7 @@ var Symbols = function Symbols(_ref) {
 	return null;
 };
 Symbols.registerSymbol = registerSymbol;
-//#endregion
-//#region node_modules/recharts/es6/component/DefaultLegendContent.js
+// node_modules/recharts/es6/component/DefaultLegendContent.js
 /**
 * @fileOverview Default Legend Content
 */
@@ -1491,8 +1483,7 @@ _defineProperty$35(DefaultLegendContent, "defaultProps", {
 	verticalAlign: "middle",
 	inactiveColor: "#ccc"
 });
-//#endregion
-//#region node_modules/recharts/es6/util/payload/getUniqPayload.js
+// node_modules/recharts/es6/util/payload/getUniqPayload.js
 var import_uniqBy = /* @__PURE__ */ __toESM(require_uniqBy());
 /**
 * This is configuration option that decides how to filter for unique values only:
@@ -1506,8 +1497,7 @@ function getUniqPayload(payload, option, defaultUniqBy) {
 	if ((0, import_isFunction.default)(option)) return (0, import_uniqBy.default)(payload, option);
 	return payload;
 }
-//#endregion
-//#region node_modules/recharts/es6/component/Legend.js
+// node_modules/recharts/es6/component/Legend.js
 /**
 * @fileOverview Legend
 */
@@ -1784,8 +1774,7 @@ _defineProperty$34(Legend, "defaultProps", {
 	align: "center",
 	verticalAlign: "bottom"
 });
-//#endregion
-//#region node_modules/recharts/es6/component/DefaultTooltipContent.js
+// node_modules/recharts/es6/component/DefaultTooltipContent.js
 /**
 * @fileOverview Default Tooltip Content
 */
@@ -1966,8 +1955,7 @@ var DefaultTooltipContent = function DefaultTooltipContent(props) {
 		style: finalLabelStyle
 	}, /*#__PURE__*/ import_react.isValidElement(finalLabel) ? finalLabel : "".concat(finalLabel)), renderContent());
 };
-//#endregion
-//#region node_modules/recharts/es6/util/tooltip/translate.js
+// node_modules/recharts/es6/util/tooltip/translate.js
 function _typeof$33(o) {
 	"@babel/helpers - typeof";
 	return _typeof$33 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o) {
@@ -2065,8 +2053,7 @@ function getTooltipTranslate(_ref4) {
 		})
 	};
 }
-//#endregion
-//#region node_modules/recharts/es6/component/TooltipBoundingBox.js
+// node_modules/recharts/es6/component/TooltipBoundingBox.js
 function _typeof$32(o) {
 	"@babel/helpers - typeof";
 	return _typeof$32 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o) {
@@ -2304,8 +2291,7 @@ var Global = {
 		}
 	}
 };
-//#endregion
-//#region node_modules/recharts/es6/component/Tooltip.js
+// node_modules/recharts/es6/component/Tooltip.js
 /**
 * @fileOverview Tooltip
 */
@@ -2502,8 +2488,7 @@ _defineProperty$30(Tooltip, "defaultProps", {
 	},
 	wrapperStyle: {}
 });
-//#endregion
-//#region node_modules/recharts/es6/component/ResponsiveContainer.js
+// node_modules/recharts/es6/component/ResponsiveContainer.js
 /**
 * @fileOverview Wrapper component to make charts adapt to the size of parent * DOM
 */
@@ -2705,8 +2690,7 @@ var ResponsiveContainer = /*#__PURE__*/ (0, import_react.forwardRef)(function(_r
 		ref: containerRef
 	}, chartContent);
 });
-//#endregion
-//#region node_modules/recharts/es6/component/Cell.js
+// node_modules/recharts/es6/component/Cell.js
 /**
 * @fileOverview Cross
 */
@@ -2714,8 +2698,7 @@ var Cell = function Cell(_props) {
 	return null;
 };
 Cell.displayName = "Cell";
-//#endregion
-//#region node_modules/recharts/es6/util/DOMUtils.js
+// node_modules/recharts/es6/util/DOMUtils.js
 function _typeof$29(o) {
 	"@babel/helpers - typeof";
 	return _typeof$29 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o) {
@@ -2839,8 +2822,7 @@ var getOffset = function getOffset(rect) {
 		left: rect.left + window.scrollX - document.documentElement.clientLeft
 	};
 };
-//#endregion
-//#region node_modules/recharts/es6/util/ReduceCSSCalc.js
+// node_modules/recharts/es6/util/ReduceCSSCalc.js
 function _typeof$28(o) {
 	"@babel/helpers - typeof";
 	return _typeof$28 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o) {
@@ -3060,8 +3042,7 @@ function reduceCSSCalc(expression) {
 	if (result === STR_NAN) return "";
 	return result;
 }
-//#endregion
-//#region node_modules/recharts/es6/component/Text.js
+// node_modules/recharts/es6/component/Text.js
 var _excluded$10 = [
 	"x",
 	"y",
@@ -3317,8 +3298,7 @@ var Text = function Text(_ref5) {
 		}, words);
 	}));
 };
-//#endregion
-//#region node_modules/victory-vendor/es/d3-scale.js
+// node_modules/victory-vendor/es/d3-scale.js
 var d3_scale_exports = /* @__PURE__ */ __exportAll({
 	scaleBand: () => band,
 	scaleDiverging: () => diverging,
@@ -3349,8 +3329,7 @@ var d3_scale_exports = /* @__PURE__ */ __exportAll({
 	scaleUtc: () => utcTime,
 	tickFormat: () => tickFormat
 });
-//#endregion
-//#region node_modules/recharts-scale/es6/util/utils.js
+// node_modules/recharts-scale/es6/util/utils.js
 var import_max = /* @__PURE__ */ __toESM(require_max());
 var import_min = /* @__PURE__ */ __toESM(require_min());
 var import_flatMap = /* @__PURE__ */ __toESM(require_flatMap());
@@ -3453,8 +3432,7 @@ var memoize$1 = function memoize(fn) {
 		return lastResult;
 	};
 };
-//#endregion
-//#region node_modules/recharts-scale/es6/util/arithmetic.js
+// node_modules/recharts-scale/es6/util/arithmetic.js
 /**
 * @fileOverview 一些公用的运算方法
 * @author xile611
@@ -3513,8 +3491,7 @@ var arithmetic_default = {
 		return Math.max(0, Math.min(1, (x - a) / diff));
 	})
 };
-//#endregion
-//#region node_modules/recharts-scale/es6/getNiceTickValues.js
+// node_modules/recharts-scale/es6/getNiceTickValues.js
 /**
 * @fileOverview calculate tick values of scale
 * @author xile611, arcthur
@@ -3722,15 +3699,13 @@ function getTickValuesFixedDomainFn(_ref7, tickCount) {
 }
 var getNiceTickValues = memoize$1(getNiceTickValuesFn);
 var getTickValuesFixedDomain = memoize$1(getTickValuesFixedDomainFn);
-//#endregion
-//#region node_modules/tiny-invariant/dist/esm/tiny-invariant.js
+// node_modules/tiny-invariant/dist/esm/tiny-invariant.js
 var prefix = "Invariant failed";
 function invariant(condition, message) {
 	if (condition) return;
 	throw new Error(prefix);
 }
-//#endregion
-//#region node_modules/recharts/es6/cartesian/ErrorBar.js
+// node_modules/recharts/es6/cartesian/ErrorBar.js
 /**
 * @fileOverview Render a group of error bar
 */
@@ -4009,8 +3984,7 @@ _defineProperty$27(ErrorBar, "defaultProps", {
 	layout: "horizontal"
 });
 _defineProperty$27(ErrorBar, "displayName", "ErrorBar");
-//#endregion
-//#region node_modules/recharts/es6/util/getLegendProps.js
+// node_modules/recharts/es6/util/getLegendProps.js
 function _typeof$26(o) {
 	"@babel/helpers - typeof";
 	return _typeof$26 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o) {
@@ -4104,8 +4078,7 @@ var getLegendProps = function getLegendProps(_ref) {
 		item: legendItem
 	});
 };
-//#endregion
-//#region node_modules/recharts/es6/util/ChartUtils.js
+// node_modules/recharts/es6/util/ChartUtils.js
 function _typeof$25(o) {
 	"@babel/helpers - typeof";
 	return _typeof$25 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o) {
@@ -4895,8 +4868,7 @@ var getTooltipItem = function getTooltipItem(graphicalItem, payload) {
 		hide
 	});
 };
-//#endregion
-//#region node_modules/recharts/es6/util/PolarUtils.js
+// node_modules/recharts/es6/util/PolarUtils.js
 function _typeof$24(o) {
 	"@babel/helpers - typeof";
 	return _typeof$24 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o) {
@@ -5029,8 +5001,7 @@ var inRangeOfSector = function inRangeOfSector(_ref5, sector) {
 	});
 	return null;
 };
-//#endregion
-//#region node_modules/recharts/es6/component/Label.js
+// node_modules/recharts/es6/component/Label.js
 function _typeof$23(o) {
 	"@babel/helpers - typeof";
 	return _typeof$23 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o) {
@@ -5443,8 +5414,7 @@ var renderCallByParent$1 = function renderCallByParent(parentProps, viewBox) {
 };
 Label.parseViewBox = parseViewBox;
 Label.renderCallByParent = renderCallByParent$1;
-//#endregion
-//#region node_modules/recharts/es6/component/LabelList.js
+// node_modules/recharts/es6/component/LabelList.js
 var import_last = /* @__PURE__ */ __toESM(require_last());
 function _typeof$22(o) {
 	"@babel/helpers - typeof";
@@ -5616,8 +5586,7 @@ function renderCallByParent(parentProps, data) {
 	return [parseLabelList(parentProps.label, data)].concat(_toConsumableArray$2(explicitChildren));
 }
 LabelList.renderCallByParent = renderCallByParent;
-//#endregion
-//#region node_modules/recharts/es6/shape/Sector.js
+// node_modules/recharts/es6/shape/Sector.js
 /**
 * @fileOverview Sector
 */
@@ -5822,8 +5791,7 @@ var Sector = function Sector(sectorProps) {
 		role: "img"
 	}));
 };
-//#endregion
-//#region node_modules/recharts/es6/shape/Curve.js
+// node_modules/recharts/es6/shape/Curve.js
 var import_memoize = /* @__PURE__ */ __toESM(require_memoize());
 /**
 * @fileOverview Curve
@@ -5965,8 +5933,7 @@ var Curve = function Curve(props) {
 		ref: pathRef
 	}));
 };
-//#endregion
-//#region node_modules/recharts/es6/shape/Rectangle.js
+// node_modules/recharts/es6/shape/Rectangle.js
 /**
 * @fileOverview Rectangle
 */
@@ -6184,8 +6151,7 @@ var Rectangle = function Rectangle(rectangleProps) {
 		})));
 	});
 };
-//#endregion
-//#region node_modules/recharts/es6/shape/Dot.js
+// node_modules/recharts/es6/shape/Dot.js
 /**
 * @fileOverview Dot
 */
@@ -6210,8 +6176,7 @@ var Dot = function Dot(props) {
 	}));
 	return null;
 };
-//#endregion
-//#region node_modules/recharts/es6/shape/Cross.js
+// node_modules/recharts/es6/shape/Cross.js
 /**
 * @fileOverview Cross
 */
@@ -6331,8 +6296,7 @@ var Cross = function Cross(_ref) {
 		d: getPath(x, y, width, height, top, left)
 	}));
 };
-//#endregion
-//#region node_modules/recharts/es6/shape/Trapezoid.js
+// node_modules/recharts/es6/shape/Trapezoid.js
 var import_isPlainObject = /* @__PURE__ */ __toESM(require_isPlainObject());
 var import_isBoolean = /* @__PURE__ */ __toESM(require_isBoolean());
 /**
@@ -6519,8 +6483,7 @@ var Trapezoid = function Trapezoid(props) {
 		})));
 	});
 };
-//#endregion
-//#region node_modules/recharts/es6/util/ActiveShapeUtils.js
+// node_modules/recharts/es6/util/ActiveShapeUtils.js
 var _excluded$5 = [
 	"option",
 	"shapeType",
@@ -6741,8 +6704,7 @@ function getActiveShapeIndexForTooltip(_ref3) {
 	});
 	return itemData.indexOf(activeItemMatches[activeItemMatches.length - 1]);
 }
-//#endregion
-//#region node_modules/recharts/es6/util/CssPrefixUtils.js
+// node_modules/recharts/es6/util/CssPrefixUtils.js
 var import_range = /* @__PURE__ */ __toESM(require_range());
 function _typeof$15(o) {
 	"@babel/helpers - typeof";
@@ -6815,8 +6777,7 @@ var generatePrefixStyle = function generatePrefixStyle(name, value) {
 	result[name] = value;
 	return result;
 };
-//#endregion
-//#region node_modules/recharts/es6/cartesian/Brush.js
+// node_modules/recharts/es6/cartesian/Brush.js
 /**
 * @fileOverview Brush
 */
@@ -7400,16 +7361,14 @@ _defineProperty$14(Brush, "defaultProps", {
 	leaveTimeOut: 1e3,
 	alwaysShowText: false
 });
-//#endregion
-//#region node_modules/recharts/es6/util/IfOverflowMatches.js
+// node_modules/recharts/es6/util/IfOverflowMatches.js
 var ifOverflowMatches = function ifOverflowMatches(props, value) {
 	var alwaysShow = props.alwaysShow;
 	var ifOverflow = props.ifOverflow;
 	if (alwaysShow) ifOverflow = "extendDomain";
 	return ifOverflow === value;
 };
-//#endregion
-//#region node_modules/recharts/es6/util/BarUtils.js
+// node_modules/recharts/es6/util/BarUtils.js
 var import_mapValues = /* @__PURE__ */ __toESM(require_mapValues());
 var import_every = /* @__PURE__ */ __toESM(require_every());
 var _excluded$4 = ["x", "y"];
@@ -7541,8 +7500,7 @@ var minPointSizeCallback = function minPointSizeCallback(minPointSize) {
 		return defaultValue;
 	};
 };
-//#endregion
-//#region node_modules/recharts/es6/cartesian/Bar.js
+// node_modules/recharts/es6/cartesian/Bar.js
 /**
 * @fileOverview Render a group of bar
 */
@@ -8006,8 +7964,7 @@ _defineProperty$12(Bar, "getComposedData", function(_ref2) {
 		layout
 	}, offset);
 });
-//#endregion
-//#region node_modules/recharts/es6/util/CartesianUtils.js
+// node_modules/recharts/es6/util/CartesianUtils.js
 function _typeof$11(o) {
 	"@babel/helpers - typeof";
 	return _typeof$11 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o) {
@@ -8296,8 +8253,7 @@ var getAngledRectangleWidth = function getAngledRectangleWidth(_ref6) {
 	var angledWidth = angleRadians > angleThreshold && angleRadians < Math.PI - angleThreshold ? height / Math.sin(angleRadians) : width / Math.cos(angleRadians);
 	return Math.abs(angledWidth);
 };
-//#endregion
-//#region node_modules/recharts/es6/util/calculateViewBox.js
+// node_modules/recharts/es6/util/calculateViewBox.js
 var import_some = /* @__PURE__ */ __toESM(require_some());
 require_find();
 /**
@@ -8326,8 +8282,7 @@ var calculateViewBox = (0, import_memoize.default)(function(offset) {
 		offset.height
 	].join("");
 });
-//#endregion
-//#region node_modules/recharts/es6/context/chartLayoutContext.js
+// node_modules/recharts/es6/context/chartLayoutContext.js
 var XAxisContext = /*#__PURE__*/ (0, import_react.createContext)(void 0);
 var YAxisContext = /*#__PURE__*/ (0, import_react.createContext)(void 0);
 var ViewBoxContext = /*#__PURE__*/ (0, import_react.createContext)(void 0);
@@ -8391,8 +8346,7 @@ var useChartWidth = function useChartWidth() {
 var useChartHeight = function useChartHeight() {
 	return (0, import_react.useContext)(ChartHeightContext);
 };
-//#endregion
-//#region node_modules/recharts/es6/cartesian/ReferenceLine.js
+// node_modules/recharts/es6/cartesian/ReferenceLine.js
 /**
 * @fileOverview Reference Line
 */
@@ -8668,8 +8622,7 @@ _defineProperty$10(ReferenceLine, "defaultProps", {
 	strokeWidth: 1,
 	position: "middle"
 });
-//#endregion
-//#region node_modules/recharts/es6/cartesian/ReferenceDot.js
+// node_modules/recharts/es6/cartesian/ReferenceDot.js
 /**
 * @fileOverview Reference Dot
 */
@@ -8865,8 +8818,7 @@ _defineProperty$9(ReferenceDot, "renderDot", function(option, props) {
 	}));
 	return dot;
 });
-//#endregion
-//#region node_modules/recharts/es6/cartesian/ReferenceArea.js
+// node_modules/recharts/es6/cartesian/ReferenceArea.js
 /**
 * @fileOverview Reference Line
 */
@@ -9056,8 +9008,7 @@ _defineProperty$8(ReferenceArea, "renderRect", function(option, props) {
 	else rect = /*#__PURE__*/ import_react.createElement(Rectangle, _extends$5({}, props, { className: "recharts-reference-area-rect" }));
 	return rect;
 });
-//#endregion
-//#region node_modules/recharts/es6/util/getEveryNthWithCondition.js
+// node_modules/recharts/es6/util/getEveryNthWithCondition.js
 /**
 * Given an array and a number N, return a new array which contains every nTh
 * element of the input array. For n below 1, an empty array is returned.
@@ -9075,8 +9026,7 @@ function getEveryNthWithCondition(array, n, isValid) {
 	else return;
 	return result;
 }
-//#endregion
-//#region node_modules/recharts/es6/util/TickUtils.js
+// node_modules/recharts/es6/util/TickUtils.js
 function getAngledTickWidth(contentSize, unitSize, angle) {
 	return getAngledRectangleWidth({
 		width: contentSize.width + unitSize.width,
@@ -9103,8 +9053,7 @@ function isVisible(sign, tickPosition, getSize, start, end) {
 function getNumberIntervalTicks(ticks, interval) {
 	return getEveryNthWithCondition(ticks, interval + 1);
 }
-//#endregion
-//#region node_modules/recharts/es6/cartesian/getEquidistantTicks.js
+// node_modules/recharts/es6/cartesian/getEquidistantTicks.js
 function getEquidistantTicks(sign, boundaries, getTickSize, ticks, minTickGap) {
 	var result = (ticks || []).slice();
 	var initialStart = boundaries.start, end = boundaries.end;
@@ -9138,8 +9087,7 @@ function getEquidistantTicks(sign, boundaries, getTickSize, ticks, minTickGap) {
 	}
 	return [];
 }
-//#endregion
-//#region node_modules/recharts/es6/cartesian/getTicks.js
+// node_modules/recharts/es6/cartesian/getTicks.js
 function _typeof$7(o) {
 	"@babel/helpers - typeof";
 	return _typeof$7 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o) {
@@ -9286,8 +9234,7 @@ function getTicks(props, fontSize, letterSpacing) {
 		return entry.isShow;
 	});
 }
-//#endregion
-//#region node_modules/recharts/es6/cartesian/CartesianAxis.js
+// node_modules/recharts/es6/cartesian/CartesianAxis.js
 /**
 * @fileOverview Cartesian Axis
 */
@@ -9685,8 +9632,7 @@ _defineProperty$6(CartesianAxis, "defaultProps", {
 	tickMargin: 2,
 	interval: "preserveEnd"
 });
-//#endregion
-//#region node_modules/recharts/es6/cartesian/Area.js
+// node_modules/recharts/es6/cartesian/Area.js
 /**
 * @fileOverview Area
 */
@@ -10209,8 +10155,7 @@ _defineProperty$5(Area, "renderDotItem", function(option, props) {
 	}
 	return dotItem;
 });
-//#endregion
-//#region node_modules/recharts/es6/cartesian/XAxis.js
+// node_modules/recharts/es6/cartesian/XAxis.js
 /**
 * @fileOverview X Axis
 */
@@ -10371,8 +10316,7 @@ _defineProperty$4(XAxis, "defaultProps", {
 	reversed: false,
 	allowDuplicatedCategory: true
 });
-//#endregion
-//#region node_modules/recharts/es6/cartesian/YAxis.js
+// node_modules/recharts/es6/cartesian/YAxis.js
 /**
 * @fileOverview Y Axis
 */
@@ -10532,8 +10476,7 @@ _defineProperty$3(YAxis, "defaultProps", {
 	scale: "auto",
 	reversed: false
 });
-//#endregion
-//#region node_modules/recharts/es6/util/DetectReferenceElementsDomain.js
+// node_modules/recharts/es6/util/DetectReferenceElementsDomain.js
 function _toConsumableArray$1(arr) {
 	return _arrayWithoutHoles$1(arr) || _iterableToArray$1(arr) || _unsupportedIterableToArray$1(arr) || _nonIterableSpread$1();
 }
@@ -10594,8 +10537,7 @@ var detectReferenceElementsDomain = function detectReferenceElementsDomain(child
 };
 var eventCenter = new (/* @__PURE__ */ __toESM(require_eventemitter3())).default();
 var SYNC_EVENT = "recharts.syncMouseEvents";
-//#endregion
-//#region node_modules/recharts/es6/chart/AccessibilityManager.js
+// node_modules/recharts/es6/chart/AccessibilityManager.js
 function _typeof$2(o) {
 	"@babel/helpers - typeof";
 	return _typeof$2 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o) {
@@ -10717,8 +10659,7 @@ var AccessibilityManager = /*#__PURE__*/ function() {
 		}
 	]);
 }();
-//#endregion
-//#region node_modules/recharts/es6/util/isDomainSpecifiedByUser.js
+// node_modules/recharts/es6/util/isDomainSpecifiedByUser.js
 /**
 * Takes a domain and user props to determine whether he provided the domain via props or if we need to calculate it.
 * @param   {AxisDomain}  domain              The potential domain from props
@@ -10734,8 +10675,7 @@ function isDomainSpecifiedByUser(domain, allowDataOverflow, axisType) {
 	}
 	return false;
 }
-//#endregion
-//#region node_modules/recharts/es6/util/cursor/getCursorRectangle.js
+// node_modules/recharts/es6/util/cursor/getCursorRectangle.js
 function getCursorRectangle(layout, activeCoordinate, offset, tooltipAxisBandSize) {
 	var halfSize = tooltipAxisBandSize / 2;
 	return {
@@ -10747,8 +10687,7 @@ function getCursorRectangle(layout, activeCoordinate, offset, tooltipAxisBandSiz
 		height: layout === "horizontal" ? offset.height - 1 : tooltipAxisBandSize
 	};
 }
-//#endregion
-//#region node_modules/recharts/es6/util/cursor/getRadialCursorPoints.js
+// node_modules/recharts/es6/util/cursor/getRadialCursorPoints.js
 /**
 * Only applicable for radial layouts
 * @param {Object} activeCoordinate ChartCoordinate
@@ -10765,8 +10704,7 @@ function getRadialCursorPoints(activeCoordinate) {
 		endAngle
 	};
 }
-//#endregion
-//#region node_modules/recharts/es6/util/cursor/getCursorPoints.js
+// node_modules/recharts/es6/util/cursor/getCursorPoints.js
 function getCursorPoints(layout, activeCoordinate, offset) {
 	var x1, y1, x2, y2;
 	if (layout === "horizontal") {
@@ -10798,8 +10736,7 @@ function getCursorPoints(layout, activeCoordinate, offset) {
 		y: y2
 	}];
 }
-//#endregion
-//#region node_modules/recharts/es6/component/Cursor.js
+// node_modules/recharts/es6/component/Cursor.js
 function _typeof$1(o) {
 	"@babel/helpers - typeof";
 	return _typeof$1 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o) {
@@ -10892,8 +10829,7 @@ function Cursor(props) {
 	});
 	return /*#__PURE__*/ (0, import_react.isValidElement)(elementPropsCursor) ? /*#__PURE__*/ (0, import_react.cloneElement)(elementPropsCursor, cursorProps) : /*#__PURE__*/ (0, import_react.createElement)(cursorComp, cursorProps);
 }
-//#endregion
-//#region node_modules/recharts/es6/chart/generateCategoricalChart.js
+// node_modules/recharts/es6/chart/generateCategoricalChart.js
 var _excluded = ["item"];
 var _excluded2 = [
 	"children",
@@ -11536,8 +11472,7 @@ var getCartesianAxisSize = function getCartesianAxisSize(axisObj, axisName) {
 	if (axisName === "xAxis") return axisObj[axisName].width;
 	if (axisName === "yAxis") return axisObj[axisName].height;
 };
-//#endregion
-//#region node_modules/recharts/es6/chart/AreaChart.js
+// node_modules/recharts/es6/chart/AreaChart.js
 /**
 * @fileOverview Area Chart
 */
@@ -12598,5 +12533,4 @@ var AreaChart = function generateCategoricalChart(_ref6) {
 	}],
 	formatAxisMap
 });
-//#endregion
 export { Tooltip as a, ResponsiveContainer as i, YAxis as n, Area as r, AreaChart as t };

@@ -1,5 +1,10 @@
 import { PassThrough, Readable } from "node:stream";
-//#region node_modules/srvx/dist/_chunks/_url.mjs
+// node_modules/h3/node_modules/rou3/dist/index.mjs
+var NullProtoObj = /* @__PURE__ */ (() => {
+	const e = function() {};
+	return e.prototype = Object.create(null), Object.freeze(e.prototype), e;
+})();
+// node_modules/h3/node_modules/srvx/dist/_chunks/_url.mjs
 function lazyInherit(target, source, sourceKey) {
 	for (const key of [...Object.getOwnPropertyNames(source), ...Object.getOwnPropertySymbols(source)]) {
 		if (key === "constructor") continue;
@@ -133,8 +138,7 @@ var FastURL = /* @__PURE__ */ (() => {
 	Object.setPrototypeOf(FastURL, NativeURL);
 	return FastURL;
 })();
-//#endregion
-//#region node_modules/srvx/dist/adapters/node.mjs
+// node_modules/h3/node_modules/srvx/dist/adapters/node.mjs
 var NodeResponse = /* @__PURE__ */ (() => {
 	const NativeResponse = globalThis.Response;
 	const STATUS_CODES = globalThis.process?.getBuiltinModule?.("node:http")?.STATUS_CODES || {};
@@ -244,14 +248,7 @@ var NodeResponse = /* @__PURE__ */ (() => {
 	Object.setPrototypeOf(NodeResponse.prototype, NativeResponse.prototype);
 	return NodeResponse;
 })();
-//#endregion
-//#region node_modules/h3/node_modules/rou3/dist/index.mjs
-var NullProtoObj = /* @__PURE__ */ (() => {
-	const e = function() {};
-	return e.prototype = Object.create(null), Object.freeze(e.prototype), e;
-})();
-//#endregion
-//#region node_modules/h3/dist/h3.mjs
+// node_modules/h3/dist/h3.mjs
 function decodePathname(pathname) {
 	return decodeURI(pathname.includes("%25") ? pathname.replace(/%25/g, "%2525") : pathname);
 }
@@ -650,5 +647,4 @@ var H3Core = class {
 		return routeMiddleware ? [...globalMiddleware, ...routeMiddleware] : globalMiddleware;
 	}
 };
-//#endregion
-export { toRequest as a, toEventHandler as i, HTTPError as n, NodeResponse as o, defineLazyEventHandler as r, FastURL as s, H3Core as t };
+export { toRequest as a, toEventHandler as i, HTTPError as n, defineLazyEventHandler as r, H3Core as t };

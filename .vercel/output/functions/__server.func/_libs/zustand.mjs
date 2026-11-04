@@ -1,6 +1,6 @@
-import { i as __toESM } from "../_runtime.mjs";
-import { q as require_react } from "./@tanstack/react-router+[...].mjs";
-//#region node_modules/zustand/esm/vanilla.mjs
+import { o as __toESM } from "../_runtime.mjs";
+import { W as require_react } from "./@tanstack/react-router+[...].mjs";
+// node_modules/zustand/esm/vanilla.mjs
 var import_react = /* @__PURE__ */ __toESM(require_react(), 1);
 var createStoreImpl = (createState) => {
 	let state;
@@ -29,11 +29,10 @@ var createStoreImpl = (createState) => {
 	return api;
 };
 var createStore = ((createState) => createState ? createStoreImpl(createState) : createStoreImpl);
-//#endregion
-//#region node_modules/zustand/esm/react.mjs
+// node_modules/zustand/esm/react.mjs
 var identity = (arg) => arg;
 function useStore(api, selector = identity) {
-	const slice = import_react.useSyncExternalStore(api.subscribe, import_react.useCallback(() => selector(api.getState()), [api, selector]), import_react.useCallback(() => selector(api.getInitialState()), [api, selector]));
+	const slice = import_react.useSyncExternalStore(api.subscribe, import_react.useCallback(() => selector(api.getState()), [api, selector]), () => selector(api.getInitialState()));
 	import_react.useDebugValue(slice);
 	return slice;
 }
@@ -44,8 +43,7 @@ var createImpl = (createState) => {
 	return useBoundStore;
 };
 var create = ((createState) => createState ? createImpl(createState) : createImpl);
-//#endregion
-//#region node_modules/zustand/esm/middleware.mjs
+// node_modules/zustand/esm/middleware.mjs
 function createJSONStorage(getStorage, options) {
 	let storage;
 	try {
@@ -119,8 +117,8 @@ var persistImpl = (config, baseOptions) => (set, get, api) => {
 		});
 	};
 	const savedSetState = api.setState;
-	api.setState = (state, replace) => {
-		savedSetState(state, replace);
+	api.setState = (...args) => {
+		savedSetState(...args);
 		return setItem();
 	};
 	const configResult = config((...args) => {
@@ -201,5 +199,4 @@ var persistImpl = (config, baseOptions) => (set, get, api) => {
 	return stateFromStorage || configResult;
 };
 var persist = persistImpl;
-//#endregion
 export { persist as n, create as r, createJSONStorage as t };

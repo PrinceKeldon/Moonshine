@@ -1,4 +1,4 @@
-//#region node_modules/d3-path/src/path.js
+// node_modules/d3-path/src/path.js
 var pi = Math.PI;
 var tau = 2 * pi;
 var epsilon = 1e-6;
@@ -76,5 +76,4 @@ function path() {
 	return new Path();
 }
 path.prototype = Path.prototype;
-//#endregion
 export { Path as t };

@@ -1,14 +1,12 @@
-//#region node_modules/d3-array/src/ascending.js
+// node_modules/d3-array/src/ascending.js
 function ascending(a, b) {
 	return a == null || b == null ? NaN : a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
 }
-//#endregion
-//#region node_modules/d3-array/src/descending.js
+// node_modules/d3-array/src/descending.js
 function descending(a, b) {
 	return a == null || b == null ? NaN : b < a ? -1 : b > a ? 1 : b >= a ? 0 : NaN;
 }
-//#endregion
-//#region node_modules/d3-array/src/bisector.js
+// node_modules/d3-array/src/bisector.js
 function bisector(f) {
 	let compare1, compare2, delta;
 	if (f.length !== 2) {
@@ -55,8 +53,7 @@ function bisector(f) {
 function zero() {
 	return 0;
 }
-//#endregion
-//#region node_modules/d3-array/src/number.js
+// node_modules/d3-array/src/number.js
 function number(x) {
 	return x === null ? NaN : +x;
 }
@@ -68,14 +65,12 @@ function* numbers(values, valueof) {
 		for (let value of values) if ((value = valueof(value, ++index, values)) != null && (value = +value) >= value) yield value;
 	}
 }
-//#endregion
-//#region node_modules/d3-array/src/bisect.js
+// node_modules/d3-array/src/bisect.js
 var ascendingBisect = bisector(ascending);
 var bisectRight = ascendingBisect.right;
 ascendingBisect.left;
 bisector(number).center;
-//#endregion
-//#region node_modules/d3-array/src/sort.js
+// node_modules/d3-array/src/sort.js
 function compareDefined(compare = ascending) {
 	if (compare === ascending) return ascendingDefined;
 	if (typeof compare !== "function") throw new TypeError("compare is not a function");
@@ -88,8 +83,7 @@ function compareDefined(compare = ascending) {
 function ascendingDefined(a, b) {
 	return (a == null || !(a >= a)) - (b == null || !(b >= b)) || (a < b ? -1 : a > b ? 1 : 0);
 }
-//#endregion
-//#region node_modules/d3-array/src/ticks.js
+// node_modules/d3-array/src/ticks.js
 var e10 = Math.sqrt(50);
 var e5 = Math.sqrt(10);
 var e2 = Math.sqrt(2);
@@ -140,8 +134,7 @@ function tickStep(start, stop, count) {
 	const reverse = stop < start, inc = reverse ? tickIncrement(stop, start, count) : tickIncrement(start, stop, count);
 	return (reverse ? -1 : 1) * (inc < 0 ? 1 / -inc : inc);
 }
-//#endregion
-//#region node_modules/d3-array/src/max.js
+// node_modules/d3-array/src/max.js
 function max(values, valueof) {
 	let max;
 	if (valueof === void 0) {
@@ -152,8 +145,7 @@ function max(values, valueof) {
 	}
 	return max;
 }
-//#endregion
-//#region node_modules/d3-array/src/min.js
+// node_modules/d3-array/src/min.js
 function min(values, valueof) {
 	let min;
 	if (valueof === void 0) {
@@ -164,8 +156,7 @@ function min(values, valueof) {
 	}
 	return min;
 }
-//#endregion
-//#region node_modules/d3-array/src/quickselect.js
+// node_modules/d3-array/src/quickselect.js
 function quickselect(array, k, left = 0, right = Infinity, compare) {
 	k = Math.floor(k);
 	left = Math.floor(Math.max(0, left));
@@ -205,8 +196,7 @@ function swap(array, i, j) {
 	array[i] = array[j];
 	array[j] = t;
 }
-//#endregion
-//#region node_modules/d3-array/src/quantile.js
+// node_modules/d3-array/src/quantile.js
 function quantile(values, p, valueof) {
 	values = Float64Array.from(numbers(values, valueof));
 	if (!(n = values.length) || isNaN(p = +p)) return;
@@ -222,13 +212,11 @@ function quantileSorted(values, p, valueof = number) {
 	var n, i = (n - 1) * p, i0 = Math.floor(i), value0 = +valueof(values[i0], i0, values);
 	return value0 + (+valueof(values[i0 + 1], i0 + 1, values) - value0) * (i - i0);
 }
-//#endregion
-//#region node_modules/d3-array/src/range.js
+// node_modules/d3-array/src/range.js
 function range(start, stop, step) {
 	start = +start, stop = +stop, step = (n = arguments.length) < 2 ? (stop = start, start = 0, 1) : n < 3 ? 1 : +step;
 	var i = -1, n = Math.max(0, Math.ceil((stop - start) / step)) | 0, range = new Array(n);
 	while (++i < n) range[i] = start + i * step;
 	return range;
 }
-//#endregion
 export { tickStep as a, bisector as c, tickIncrement as i, ascending as l, quantile as n, ticks as o, quantileSorted as r, bisectRight as s, range as t };

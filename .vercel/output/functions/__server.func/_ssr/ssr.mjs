@@ -1,10 +1,9 @@
-import { n as __exportAll } from "../_runtime.mjs";
-import { A as getScriptPreloadAttrs, B as isDangerousProtocol, D as toCrossJSONStream, E as toCrossJSONAsync, F as _getRenderedMatches, G as rootRouteId, I as executeRewriteInput, K as isNotFound, L as invariant, M as resolveManifestAssetLink, N as resolveManifestCssLink, P as waitForReason, U as isRedirect, V as isPromise, W as parseRedirect, a as isSsrResponse, b as require_jsx_runtime, c as stripSsrResponseBody, i as disposeSsrResponse, j as getStylesheetHref, n as bindSsrResponseToRequest, o as normalizeSsrResponse, p as RouterProvider, q as require_react, r as defineHandlerCallback, s as replaceSsrResponse, t as renderRouterToStream, w as fromJSON } from "../_libs/@tanstack/react-router+[...].mjs";
+import { r as __exportAll } from "../_runtime.mjs";
+import { A as resolveManifestAssetLink, B as isRedirect, C as fromJSON, H as rootRouteId, L as isDangerousProtocol, M as waitForReason, N as _getRenderedMatches, O as getScriptPreloadAttrs, P as invariant, R as isPromise, T as toCrossJSONStream, U as isNotFound, V as parseRedirect, W as require_react, a as isSsrResponse, f as RouterProvider, i as disposeSsrResponse, j as resolveManifestCssLink, k as getStylesheetHref, n as bindSsrResponseToRequest, o as normalizeSsrResponse, r as defineHandlerCallback, s as stripSsrResponseBody, t as renderRouterToStream, w as toCrossJSONAsync, y as require_jsx_runtime } from "../_libs/@tanstack/react-router+[...].mjs";
 import { n as createServerHistory } from "../_libs/tanstack__history.mjs";
-import { a as defaultSerovalDeserializerPlugins, i as createRawStreamRPCPlugin, n as attachRouterServerSsrUtils, o as makeSerovalPlugin, r as getNormalizedURL, s as createSerializationAdapter, t as mergeHeaders } from "../_libs/@tanstack/router-core+[...].mjs";
-import { n as toResponse, t as H3Event } from "../_libs/h3-v2+rou3.mjs";
+import { a as getNormalizedURL, c as makeSerovalPlugin, i as attachRouterServerSsrUtils, l as createSerializationAdapter, n as parseSetCookie, o as createRawStreamRPCPlugin, r as splitSetCookieString, s as defaultSerovalDeserializerPlugins, t as mergeHeaders } from "../_libs/@tanstack/router-core+[...].mjs";
 import { AsyncLocalStorage } from "node:async_hooks";
-//#region node_modules/.nitro/vite/services/ssr/index.js
+// node_modules/.nitro/vite/services/ssr/index.js
 var ssr_exports = /* @__PURE__ */ __exportAll({
 	createServerEntry: () => createServerEntry,
 	default: () => server_default,
@@ -23,74 +22,463 @@ var defaultStreamHandler = defineHandlerCallback(({ request, router, responseHea
 	responseHeaders,
 	children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(StartServer, { router })
 }));
-var GLOBAL_EVENT_STORAGE_KEY = Symbol.for("tanstack-start:event-storage");
-var globalObj$1 = globalThis;
-if (!globalObj$1[GLOBAL_EVENT_STORAGE_KEY]) globalObj$1[GLOBAL_EVENT_STORAGE_KEY] = new AsyncLocalStorage();
-var eventStorage = globalObj$1[GLOBAL_EVENT_STORAGE_KEY];
-function isPromiseLike(value) {
-	return (typeof value === "object" || typeof value === "function") && value !== null && typeof value.then === "function";
-}
 function getSetCookieValues(headers) {
 	const headersWithSetCookie = headers;
 	if (typeof headersWithSetCookie.getSetCookie === "function") return headersWithSetCookie.getSetCookie();
 	const value = headers.get("set-cookie");
-	return value ? [value] : [];
+	return value ? splitSetCookieString(value) : [];
 }
-function mergeEventResponseHeaders(response, event) {
-	if (response.ok) return;
-	const eventSetCookies = getSetCookieValues(event.res.headers);
-	if (eventSetCookies.length === 0) return;
-	const responseSetCookies = getSetCookieValues(response.headers);
-	response.headers.delete("set-cookie");
-	for (const cookie of responseSetCookies) response.headers.append("set-cookie", cookie);
-	for (const cookie of eventSetCookies) response.headers.append("set-cookie", cookie);
+var GLOBAL_EVENT_STORAGE_KEY = Symbol.for("tanstack-start:event-storage");
+var globalObj$1 = globalThis;
+if (!globalObj$1[GLOBAL_EVENT_STORAGE_KEY]) globalObj$1[GLOBAL_EVENT_STORAGE_KEY] = new AsyncLocalStorage();
+var eventStorage = globalObj$1[GLOBAL_EVENT_STORAGE_KEY];
+var PROTECTED_RESPONSE_HEADERS = Symbol.for("tanstack-start:protected-response-headers");
+function getProtectedResponseHeaders(response) {
+	return response[PROTECTED_RESPONSE_HEADERS];
 }
-function finalizeResponse(value, event) {
-	const response = ensureResponse(value);
-	mergeEventResponseHeaders(response, event);
+function installProtectedResponseHeaders(response, headers) {
+	Object.defineProperty(response, PROTECTED_RESPONSE_HEADERS, {
+		value: headers,
+		configurable: true
+	});
+}
+/** Transport requirements belong to the encoded body, not its wrapper. */
+function transferResponseProtocol(source, target) {
+	const protectedHeaders = getProtectedResponseHeaders(source);
+	if (protectedHeaders && getProtectedResponseHeaders(target) !== protectedHeaders) installProtectedResponseHeaders(target, protectedHeaders);
+}
+/** Preserve metadata when Start reconstructs an existing response. */
+function transferResponseMetadata(source, target) {
+	transferResponseProtocol(source, target);
+	const event = eventStorage.getStore();
+	const appliedHeaderAppends = event?.responseHeaderAppends?.get(source);
+	if (appliedHeaderAppends) event.responseHeaderAppends.set(target, appliedHeaderAppends);
+}
+function sanitizeStatusMessage(statusMessage) {
+	return statusMessage.replace(/[^\t\x20-\x7e]/g, "");
+}
+function sanitizeStatusCode(statusCode) {
+	const code = typeof statusCode === "string" ? Number(statusCode) : statusCode;
+	if (code === void 0 || !Number.isInteger(code) || code < 200 || code > 599) return;
+	return code;
+}
+function getObjectProperty(value, key) {
+	if (typeof value === "object" && value || typeof value === "function") return value[key];
+}
+function getStatusCodeProperty(value, key) {
+	const property = getObjectProperty(value, key);
+	if (typeof property === "string" || typeof property === "number") return property;
+}
+function getErrorStatus(error) {
+	const cause = getObjectProperty(error, "cause");
+	return sanitizeStatusCode(getStatusCodeProperty(error, "status") ?? getStatusCodeProperty(error, "statusCode") ?? getStatusCodeProperty(cause, "status") ?? getStatusCodeProperty(cause, "statusCode"));
+}
+function getErrorStatusText(error) {
+	const cause = getObjectProperty(error, "cause");
+	const statusText = getObjectProperty(error, "statusText") ?? getObjectProperty(error, "statusMessage") ?? getObjectProperty(cause, "statusText") ?? getObjectProperty(cause, "statusMessage");
+	if (typeof statusText === "string") return sanitizeStatusMessage(statusText);
+}
+var GENERATED_BODY_EXCLUDED_HEADERS = /* @__PURE__ */ new Set([
+	"connection",
+	"content-encoding",
+	"content-length",
+	"keep-alive",
+	"proxy-connection",
+	"te",
+	"trailer",
+	"transfer-encoding"
+]);
+function isResponse(value) {
+	return value instanceof Response || Object.prototype.toString.call(value) === "[object Response]";
+}
+function getErrorHeaders(error) {
+	let init = getObjectProperty(error, "headers");
+	if (!init) {
+		const cause = getObjectProperty(error, "cause");
+		if (isResponse(cause)) return;
+		init = getObjectProperty(cause, "headers");
+	}
+	if (!init) return;
+	let headers;
+	try {
+		headers = new Headers(init);
+	} catch {
+		return;
+	}
+	for (const name of GENERATED_BODY_EXCLUDED_HEADERS) headers.delete(name);
+	return headers;
+}
+function getDistinctCookieKey(name, options, defaultPath = "") {
+	return [
+		name,
+		options.domain || "",
+		options.path ?? defaultPath
+	].join(";");
+}
+function getDistinctCookieKeyFromHeader(cookie) {
+	const parsed = parseSetCookie(cookie);
+	return parsed ? getDistinctCookieKey(parsed.name, parsed) : `\0${cookie}`;
+}
+function replaceSetCookieValues(headers, cookies) {
+	headers.delete("set-cookie");
+	for (const cookie of cookies) headers.append("set-cookie", cookie);
+}
+function getCookieKey(state, cookie) {
+	const keys = state.setCookieKeys ||= /* @__PURE__ */ new Map();
+	let key = keys.get(cookie);
+	if (key === void 0) {
+		key = getDistinctCookieKeyFromHeader(cookie);
+		keys.set(cookie, key);
+	}
+	return key;
+}
+function getMergedSetCookieValues(state, currentCookies, cookiesToMerge) {
+	if (currentCookies.length === 0) return cookiesToMerge;
+	const cookieKeysToMerge = /* @__PURE__ */ new Set();
+	for (const cookie of cookiesToMerge) cookieKeysToMerge.add(getCookieKey(state, cookie));
+	return currentCookies.filter((cookie) => !cookieKeysToMerge.has(getCookieKey(state, cookie))).concat(cookiesToMerge);
+}
+function hasProtectedHeaderChanges(response, protectedHeaders) {
+	const headers = response.headers;
+	for (const [name, value] of protectedHeaders) if (headers.get(name) !== value) return true;
+	return false;
+}
+function applyProtectedHeaders(protectedHeaders, headers) {
+	for (const [name, value] of protectedHeaders) if (value === null) headers.delete(name);
+	else headers.set(name, value);
+}
+function applyHeaderState(target, state, generatedBody, protectedHeaders, appliedHeaderAppends) {
+	let headers = target;
+	const mutableHeaders = () => {
+		if (headers === target) headers = new Headers(target);
+		return headers;
+	};
+	if (state.clearHeaders) {
+		for (const name of Array.from(target.keys())) if (!protectedHeaders?.has(name)) mutableHeaders().delete(name);
+	}
+	if (!state.clearHeaders && state.removedHeaders) {
+		for (const name of state.removedHeaders) if (!protectedHeaders?.has(name) && headers.has(name)) mutableHeaders().delete(name);
+	}
+	for (const [name, value] of state.headers) if (name !== "set-cookie" && !protectedHeaders?.has(name) && !(generatedBody && GENERATED_BODY_EXCLUDED_HEADERS.has(name))) {
+		let append = state.headerAppends?.get(name);
+		if (!append) {
+			if (headers.get(name) !== value) mutableHeaders().set(name, value);
+			continue;
+		}
+		const applied = appliedHeaderAppends?.get(name);
+		const pending = [];
+		while (append && append !== applied) {
+			pending.push(append.value);
+			append = append.previous;
+		}
+		for (let index = pending.length - 1; index >= 0; index--) mutableHeaders().append(name, pending[index]);
+	}
+	if (state.setCookieBehavior && !protectedHeaders?.has("set-cookie")) {
+		const eventSetCookies = getSetCookieValues(state.headers);
+		const currentCookies = getSetCookieValues(headers);
+		const cookies = state.setCookieBehavior === "replace" ? eventSetCookies : getMergedSetCookieValues(state, currentCookies, eventSetCookies);
+		if (cookies.length !== currentCookies.length || cookies.some((cookie, index) => cookie !== currentCookies[index])) replaceSetCookieValues(mutableHeaders(), cookies);
+	}
+	return headers;
+}
+function canHaveBody(method, status) {
+	return method !== "HEAD" && status !== 204 && status !== 205 && status !== 304;
+}
+/** A protected content type marks a Start-serialized body the client decodes. */
+function isSerializedResponse(protectedHeaders) {
+	return typeof protectedHeaders?.get("content-type") === "string";
+}
+/**
+* A helper status that forbids a body never applies to a serialized
+* server-function reply, because the client must decode it. Only a HEAD request
+* drops its body.
+*/
+function getHelperStatus(state, serialized) {
+	const status = state?.status;
+	if (!serialized || status === void 0 || canHaveBody("GET", status)) return status;
+}
+/** Helper status text describes the helper status and is ignored with it. */
+function getHelperStatusText(state, helperStatus) {
+	return helperStatus === state?.status ? state?.statusText : void 0;
+}
+function cancelDroppedBody(response, reason) {
+	try {
+		response.body?.cancel(reason).catch(() => {});
+	} catch {}
+}
+function createReconciledResponse(body, status, statusText, headers) {
+	try {
+		return new Response(body, {
+			status,
+			statusText,
+			headers
+		});
+	} catch (cause) {
+		throw new Error("Unable to reconcile response because its body has already been consumed or locked.", { cause });
+	}
+}
+/** Apply helper state to a response that leaves Start. */
+function finalizeResponse(response, event) {
+	return applyResponseState(response, event, event.request.method);
+}
+/**
+* Apply helper state with the body rules of `method`. Request middleware still
+* reads a HEAD response's body, so the pipeline applies GET rules and strips a
+* HEAD body only when the response leaves it.
+*/
+function applyResponseState(response, event, method, disposeBody) {
+	const protectedHeaders = getProtectedResponseHeaders(response);
+	const serialized = isSerializedResponse(protectedHeaders);
+	let helperStatus = getHelperStatus(event.responseState, serialized);
+	const mustDropBody = !canHaveBody(method, helperStatus ?? response.status) && response.body !== null;
+	if (mustDropBody) {
+		const reason = method === "HEAD" ? "HEAD body stripped" : "Response body dropped by Start reconciliation";
+		if (disposeBody) disposeBody(reason);
+		else cancelDroppedBody(response, reason);
+		helperStatus = getHelperStatus(event.responseState, serialized);
+	}
+	const state = event.responseState;
+	if (!state && !mustDropBody) {
+		event.currentResponse = response;
+		return response;
+	}
+	const status = helperStatus ?? response.status;
+	const statusText = getHelperStatusText(state, helperStatus) ?? response.statusText;
+	const statusChanged = status !== response.status;
+	const statusTextChanged = statusText !== response.statusText;
+	const headers = state ? applyHeaderState(response.headers, state, serialized, protectedHeaders, event.responseHeaderAppends?.get(response)) : response.headers;
+	const reconciled = statusChanged || statusTextChanged || mustDropBody || headers !== response.headers ? createReconciledResponse(mustDropBody ? null : response.body, status, statusText, headers) : response;
+	if (protectedHeaders && reconciled !== response) installProtectedResponseHeaders(reconciled, protectedHeaders);
+	return publishResponse(reconciled, event);
+}
+function publishResponse(response, event) {
+	const headerAppends = event.responseState?.headerAppends;
+	if (headerAppends?.size) (event.responseHeaderAppends ||= /* @__PURE__ */ new WeakMap()).set(response, new Map(headerAppends));
+	event.currentResponse = response;
 	return response;
 }
-function finalizeMaybeResponse(value, event) {
-	if (isPromiseLike(value)) return Promise.resolve(value).then((resolved) => finalizeResponse(resolved, event), (error) => finalizeResponse(handleResponseError(error), event));
-	return finalizeResponse(value, event);
+function getHttpErrorStatus(status) {
+	return status !== void 0 && status >= 400 ? status : void 0;
 }
-function ensureResponse(value) {
-	if (value instanceof Response) return value;
-	return new Response("Internal Server Error", { status: 500 });
-}
-function handleResponseError(error) {
-	if (error instanceof Response) return error;
-	if (error instanceof Error) throw error;
-	return new Response("Internal Server Error", { status: 500 });
-}
-function requestHandler(handler) {
-	return (request, requestOpts) => {
-		let h3Event;
-		try {
-			h3Event = new H3Event(request);
-		} catch (error) {
-			if (error instanceof URIError) return new Response(null, {
-				status: 400,
-				statusText: "Bad Request"
-			});
-			throw error;
-		}
-		let response;
-		try {
-			response = eventStorage.run({ h3Event }, () => handler(request, requestOpts));
-		} catch (error) {
-			response = handleResponseError(error);
-		}
-		return toResponse(finalizeMaybeResponse(response, h3Event), h3Event);
+/**
+* Status for a response built from an uncaught error. Only an error status
+* (400-599) from a helper or from error metadata describes the failure, so a
+* success or redirect status set before the throw cannot hide it. The error is
+* logged unless its own metadata marks it as an HTTP error. Reporting runs
+* before helper state is read, so hooks that write helpers are included.
+*/
+function resolveErrorStatus(error, event) {
+	const metadataStatus = getErrorStatus(error);
+	const errorStatus = getHttpErrorStatus(metadataStatus);
+	if (errorStatus === void 0) console.error(error);
+	const state = event?.responseState;
+	const helperStatus = getHttpErrorStatus(state?.status);
+	const status = helperStatus ?? errorStatus ?? 500;
+	const statusText = getHelperStatusText(state, helperStatus) ?? (status === errorStatus || metadataStatus === void 0 ? getErrorStatusText(error) : void 0) ?? "";
+	if (state && state.status !== helperStatus) {
+		state.status = void 0;
+		state.statusText = void 0;
+	}
+	return {
+		status,
+		statusText
 	};
 }
-function getH3Event() {
+/**
+* Internal: status and status text for a serialized server-function error.
+* Logs the error and discards a non-error helper status, like any error
+* response Start builds.
+*/
+function resolveErrorResponseStatus(error) {
+	return resolveErrorStatus(error, eventStorage.getStore());
+}
+function createErrorResponse(error, event) {
+	let headers = getErrorHeaders(error) ?? new Headers();
+	const { status, statusText } = resolveErrorStatus(error, event);
+	const state = event.responseState;
+	const body = canHaveBody(event.request.method, status) ? JSON.stringify({
+		status,
+		statusText,
+		unhandled: true,
+		message: "HTTPError"
+	}) : null;
+	if (!headers.has("content-type")) headers.set("content-type", "application/json");
+	if (state) headers = applyHeaderState(headers, state, true);
+	return publishResponse(new Response(body !== null && !headers.has("content-type") ? new TextEncoder().encode(body) : body, {
+		status,
+		statusText,
+		headers
+	}), event);
+}
+function finalizeError(error, event) {
+	if (error instanceof Response) return finalizeResponse(error, event);
+	return createErrorResponse(error, event);
+}
+function handleStartError(error) {
+	const event = eventStorage.getStore();
+	if (event) return finalizeError(error, event);
+	if (error instanceof Response) return error;
+	const request = new Request("http://localhost");
+	return createErrorResponse(error, {
+		request,
+		requestUrl: new URL(request.url)
+	});
+}
+/** Apply helper state to a response inside the request middleware pipeline. */
+function reconcileResponse(response, event, disposeBody) {
+	if (!event.responseState && (response === event.currentResponse || canHaveBody("GET", response.status)) || isRedirect(response)) {
+		event.currentResponse = response;
+		return response;
+	}
+	return applyResponseState(response, event, "GET", disposeBody);
+}
+/**
+* Restore protocol headers that middleware changed directly on the response.
+* Start does this once, when the response leaves the request middleware
+* pipeline; helper writes never override them.
+*/
+function restoreResponseProtocol(response, event) {
+	const protectedHeaders = getProtectedResponseHeaders(response);
+	if (!protectedHeaders || !hasProtectedHeaderChanges(response, protectedHeaders)) return response;
+	const headers = new Headers(response.headers);
+	applyProtectedHeaders(protectedHeaders, headers);
+	const restored = createReconciledResponse(response.body, response.status, response.statusText, headers);
+	transferResponseMetadata(response, restored);
+	event.currentResponse = restored;
+	return restored;
+}
+/**
+* Build a Start-owned serialized reply with already normalized protocol
+* headers. A bodyless helper status never applies to it; only a HEAD request
+* drops its body.
+*/
+function createFinalizedResponse(body, headers, protectedHeaders, event) {
+	const state = event.responseState;
+	let status = 200;
+	let statusText = "";
+	if (state) {
+		const helperStatus = getHelperStatus(state, true);
+		status = helperStatus ?? 200;
+		statusText = getHelperStatusText(state, helperStatus) ?? "";
+		headers = applyHeaderState(headers, state, true, protectedHeaders);
+	}
+	const response = new Response(canHaveBody(event.request.method, status) ? body : null, {
+		status,
+		statusText,
+		headers
+	});
+	installProtectedResponseHeaders(response, protectedHeaders);
+	return publishResponse(response, event);
+}
+function protectResponseHeaders(response, headers) {
+	const previous = getProtectedResponseHeaders(response);
+	if (previous === headers) return;
+	if (previous) {
+		const merged = new Map(previous);
+		for (const [name, value] of headers) merged.set(name, value);
+		headers = merged;
+	}
+	installProtectedResponseHeaders(response, headers);
+}
+/**
+* Set and protect transport headers on a new response. Reuse the body stream
+* without cloning or teeing it; callers transfer ownership to the result.
+*/
+function setProtectedResponseHeaders(response, headers) {
+	let next;
+	try {
+		next = new Response(response.body, response);
+		applyProtectedHeaders(headers, next.headers);
+	} catch (cause) {
+		throw new Error("Unable to set response header because its body has already been consumed or locked.", { cause });
+	}
+	transferResponseMetadata(response, next);
+	protectResponseHeaders(next, headers);
+	return next;
+}
+function decodePathname(pathname) {
+	try {
+		return decodeURI(pathname);
+	} catch (error) {
+		if (error instanceof URIError) return;
+		throw error;
+	}
+}
+function runInStartRequest(request, requestOpts, handler) {
+	let requestUrl;
+	try {
+		requestUrl = new URL(request.url);
+	} catch (error) {
+		if (error instanceof TypeError) return new Response(null, {
+			status: 400,
+			statusText: "Bad Request"
+		});
+		throw error;
+	}
+	const pathname = requestUrl.pathname;
+	if (pathname.includes("%") && decodePathname(pathname) === void 0) return new Response(null, {
+		status: 400,
+		statusText: "Bad Request"
+	});
+	const event = {
+		request,
+		requestUrl
+	};
+	return eventStorage.run(event, handler, request, requestOpts, event);
+}
+/**
+* Keep the complete server entry, including custom error handling, inside one
+* request scope. A custom returned response is used as-is; call handleStartError
+* in a custom catch to preserve Start's response helper state.
+*/
+function createServerEntry$1(entry) {
+	return { fetch: withStartRequest(async (request, requestOpts) => {
+		try {
+			return await entry.fetch(request, requestOpts);
+		} catch (error) {
+			return handleStartError(error);
+		}
+	}) };
+}
+/**
+* Establish request scope; the response pipeline owns reconciliation. A nested
+* handler delegating the same request participates in its scope. Independent
+* fetch invocations and different requests get a fresh event.
+*/
+function withStartRequest(handler) {
+	return (request, requestOpts) => {
+		const event = eventStorage.getStore();
+		if (event?.request === request) return handler(request, requestOpts, event);
+		return runInStartRequest(request, requestOpts, handler);
+	};
+}
+function getStartEvent() {
 	const event = eventStorage.getStore();
 	if (!event) throw new Error(`No StartEvent found in AsyncLocalStorage. Make sure you are using the function within the server runtime.`);
-	return event.h3Event;
+	return event;
 }
-function getResponse() {
-	return getH3Event().res;
+/**
+* Internal: returns the per-request parsed URL for `request`, memoized on the
+* Start event so the framework parses each request URL only once. Falls back
+* to parsing when called outside a Start event (e.g. in unit tests) or for a
+* foreign request. Callers MUST NOT mutate the returned URL.
+*/
+function getParsedRequestUrl(request) {
+	const event = eventStorage.getStore();
+	if (event && event.request === request) return event.requestUrl;
+	return new URL(request.url);
+}
+/**
+* Internal: helper status state for a serialized server-function reply.
+* Bodyless statuses never apply to it and are omitted with their status text.
+*/
+function getSerializedResponseState() {
+	const state = getStartEvent().responseState;
+	const status = getHelperStatus(state, true);
+	return {
+		status,
+		statusText: getHelperStatusText(state, status)
+	};
 }
 var HEADERS = { TSS_SHELL: "X-TSS_SHELL" };
 /**
@@ -103,7 +491,7 @@ var HEADERS = { TSS_SHELL: "X-TSS_SHELL" };
 * the dev styles URL for route-scoped CSS collection.
 */
 async function getStartManifest(matchedRoutes) {
-	const { tsrStartManifest } = await import("../_tanstack-start-manifest_v-CYzXMFnL.mjs");
+	const { tsrStartManifest } = await import("../_tanstack-start-manifest_v-B59-8RNP.mjs");
 	const startManifest = tsrStartManifest();
 	let routes = startManifest.routes;
 	routes[rootRouteId];
@@ -123,13 +511,49 @@ async function getStartManifest(matchedRoutes) {
 	};
 }
 var manifest = {
+	"170417f8ce0740f3ba0c5618827e32f2b773af9ddff0765a041d6402e1129f41": {
+		functionName: "markPrices_createServerFn_handler",
+		importer: () => import("./live-chain-BhgxwmSC.mjs")
+	},
 	"1c636824bf6aa89498ed10efb134f011b2de42d34dcbdd2c82d81397403c4021": {
 		functionName: "fetchPublicTape_createServerFn_handler",
-		importer: () => import("./public-tape-DZDzkfVc.mjs")
+		importer: () => import("./public-tape-Bgjs5dTy.mjs")
+	},
+	"47caa6a4c74078c749027d978275dc04f3f822091deb09dbb78c900f65d02a31": {
+		functionName: "tokenHolding_createServerFn_handler",
+		importer: () => import("./live-chain-BhgxwmSC.mjs")
+	},
+	"9015dfc2b42a77dfa0e991bd53867dd5da5cc59e5ba3b0308534bd7af6983b5f": {
+		functionName: "fetchHeliusStreamStatus_createServerFn_handler",
+		importer: () => import("./public-tape-Bgjs5dTy.mjs")
 	},
 	"90871f9f5928875fa77ba1a07a866f9f1217d8be682fbc70e006900d6459d2d2": {
 		functionName: "fetchWallet_createServerFn_handler",
-		importer: () => import("./wallet-dpDgxYbF.mjs")
+		importer: () => import("./wallet-DsJMR9l7.mjs")
+	},
+	"95b83212ba7cd0bdc4228835993334a11869eea06f17da257208de2c40d33e68": {
+		functionName: "fetchMintPair_createServerFn_handler",
+		importer: () => import("./public-tape-Bgjs5dTy.mjs")
+	},
+	"9bdd83570495a606c75c52654410c30d3765b8a71b83eb441dafa59c5287409f": {
+		functionName: "screenMint_createServerFn_handler",
+		importer: () => import("./live-chain-BhgxwmSC.mjs")
+	},
+	"ab91eb722dd2569fbc33afec2afcf489587017b3e6cd3ccaec1fcbcc356dfe06": {
+		functionName: "confirmSig_createServerFn_handler",
+		importer: () => import("./live-chain-BhgxwmSC.mjs")
+	},
+	"b844cec9e490ad7e10c5ec7cd3578e30da109cb9b6d16b08c74637a8c5555432": {
+		functionName: "buildSwap_createServerFn_handler",
+		importer: () => import("./live-chain-BhgxwmSC.mjs")
+	},
+	"ebfb502f5fe75170e615efb1db080b9eaac1a69207a0acc8bf63af57550dd7f5": {
+		functionName: "latestBlockhash_createServerFn_handler",
+		importer: () => import("./live-chain-BhgxwmSC.mjs")
+	},
+	"fa8dcb9292572793e25f4bcdc29fd37cc2f90ac65fd625f41294f8f87bec147b": {
+		functionName: "sendRaw_createServerFn_handler",
+		importer: () => import("./live-chain-BhgxwmSC.mjs")
 	}
 };
 async function getServerFnById(id, access) {
@@ -158,7 +582,7 @@ var GLOBAL_STORAGE_KEY = Symbol.for("tanstack-start:start-storage-context");
 var globalObj = globalThis;
 if (!globalObj[GLOBAL_STORAGE_KEY]) globalObj[GLOBAL_STORAGE_KEY] = new AsyncLocalStorage();
 var startStorage = globalObj[GLOBAL_STORAGE_KEY];
-async function runWithStartContext(context, fn) {
+function runWithStartContext(context, fn) {
 	return startStorage.run(context, fn);
 }
 function getStartContext(opts) {
@@ -308,7 +732,8 @@ function createMultiplexedStream(recordStream, options = {}) {
 				if (!(value instanceof Uint8Array)) throw new TypeError("RawStream chunks must be Uint8Array");
 				let offset = 0;
 				do {
-					const frameAdmission = admitFrame(1, streamId, value.byteLength <= 16777216 ? value : value.subarray(offset, offset + MAX_FRAME_PAYLOAD_SIZE));
+					const chunk = value.byteLength <= 16777216 ? value : value.subarray(offset, offset + MAX_FRAME_PAYLOAD_SIZE);
+					const frameAdmission = admitFrame(1, streamId, chunk);
 					if (frameAdmission !== true && (frameAdmission === false || !await frameAdmission)) return;
 					offset += MAX_FRAME_PAYLOAD_SIZE;
 				} while (offset < value.byteLength);
@@ -377,10 +802,18 @@ function isSafeKey(key) {
 function safeObjectMerge(target, source) {
 	const result = Object.create(null);
 	if (target) {
-		for (const key of Object.keys(target)) if (isSafeKey(key)) result[key] = target[key];
+		const keys = Object.keys(target);
+		for (let i = 0; i < keys.length; i++) {
+			const key = keys[i];
+			if (isSafeKey(key)) result[key] = target[key];
+		}
 	}
 	if (source && typeof source === "object") {
-		for (const key of Object.keys(source)) if (isSafeKey(key)) result[key] = source[key];
+		const keys = Object.keys(source);
+		for (let i = 0; i < keys.length; i++) {
+			const key = keys[i];
+			if (isSafeKey(key)) result[key] = source[key];
+		}
 	}
 	return result;
 }
@@ -388,22 +821,12 @@ function safeObjectMerge(target, source) {
 * Create a null-prototype object, optionally copying from source.
 */
 function createNullProtoObject(source) {
-	if (!source) return Object.create(null);
-	const obj = Object.create(null);
-	for (const key of Object.keys(source)) if (isSafeKey(key)) obj[key] = source[key];
-	return obj;
+	return source ? safeObjectMerge(source, void 0) : Object.create(null);
 }
 var getStartContextServerOnly = getStartContext;
 var createServerFn = (options, __opts) => {
 	const resolvedOptions = __opts || options || {};
 	if (typeof resolvedOptions.method === "undefined") resolvedOptions.method = "GET";
-	const setValidator = (validator) => {
-		return createServerFn(void 0, {
-			...resolvedOptions,
-			validator,
-			inputValidator: validator
-		});
-	};
 	const res = {
 		options: resolvedOptions,
 		middleware: (middleware) => {
@@ -420,8 +843,12 @@ var createServerFn = (options, __opts) => {
 			res[TSS_SERVER_FUNCTION_FACTORY] = true;
 			return res;
 		},
-		validator: setValidator,
-		inputValidator: setValidator,
+		validator: (validator) => {
+			return createServerFn(void 0, {
+				...resolvedOptions,
+				validator
+			});
+		},
 		handler: (...args) => {
 			const [extractedFn, serverFn] = args;
 			const newOptions = {
@@ -441,9 +868,7 @@ var createServerFn = (options, __opts) => {
 					fetch: opts?.fetch,
 					context: createNullProtoObject()
 				});
-				const redirect = parseRedirect(result.error);
-				if (redirect) throw redirect;
-				if (result.error) throw result.error;
+				if ("error" in result) throw parseRedirect(result.error) ?? result.error;
 				return result.result;
 			}, {
 				...extractedFn,
@@ -451,18 +876,20 @@ var createServerFn = (options, __opts) => {
 				__executeServer: async (opts) => {
 					const startContext = getStartContextServerOnly();
 					const serverContextAfterGlobalMiddlewares = startContext.contextAfterGlobalMiddlewares;
-					return await executeMiddleware$1(resolvedMiddleware, "server", {
+					const ctx = {
 						...extractedFn,
 						data: opts.data,
 						method: opts.method ?? resolvedOptions.method,
 						serverFnMeta: extractedFn.serverFnMeta,
 						context: safeObjectMerge(opts.context, serverContextAfterGlobalMiddlewares),
 						request: startContext.request
-					}).then((d) => ({
-						result: d.result,
-						error: d.error,
-						context: d.sendContext
-					}));
+					};
+					const result = await executeMiddleware$1(resolvedMiddleware, "server", ctx);
+					if ("error" in result) return { error: result.error };
+					return result.sendContext === void 0 ? { result: result.result } : {
+						result: result.result,
+						context: result.sendContext
+					};
 				}
 			});
 		}
@@ -475,72 +902,71 @@ var createServerFn = (options, __opts) => {
 	};
 	return Object.assign(fun, res);
 };
+function mergeOptionalSendContext(target, source) {
+	return target === void 0 && source === void 0 ? void 0 : safeObjectMerge(target, source);
+}
+function mergeOptionalHeaders(target, source) {
+	return target || source ? mergeHeaders(target, source) : void 0;
+}
 async function executeMiddleware$1(middlewares, env, opts) {
-	let flattenedMiddlewares = flattenMiddlewares([...getStartOptions()?.functionMiddleware || [], ...middlewares]);
-	if (env === "server") {
-		const startContext = getStartContextServerOnly({ throwIfNotFound: false });
-		if (startContext?.executedRequestMiddlewares) flattenedMiddlewares = flattenedMiddlewares.filter((m) => !startContext.executedRequestMiddlewares.has(m));
-	}
-	const callNextMiddleware = async (ctx) => {
-		const nextMiddleware = flattenedMiddlewares.shift();
-		if (!nextMiddleware) return ctx;
-		try {
-			let validator = "validator" in nextMiddleware.options ? nextMiddleware.options.validator : void 0;
-			if (!validator && "inputValidator" in nextMiddleware.options) validator = nextMiddleware.options.inputValidator;
-			if (validator && env === "server") ctx.data = await execValidator(validator, ctx.data);
-			let middlewareFn = void 0;
-			if (env === "client") {
-				if ("client" in nextMiddleware.options) middlewareFn = nextMiddleware.options.client;
-			} else if ("server" in nextMiddleware.options) middlewareFn = nextMiddleware.options.server;
-			if (middlewareFn) {
-				const userNext = async (userCtx = {}) => {
-					const result = await callNextMiddleware({
-						...ctx,
-						...userCtx,
-						context: safeObjectMerge(ctx.context, userCtx.context),
-						sendContext: safeObjectMerge(ctx.sendContext, userCtx.sendContext),
-						headers: mergeHeaders(ctx.headers, userCtx.headers),
-						_callSiteFetch: ctx._callSiteFetch,
-						fetch: ctx._callSiteFetch ?? userCtx.fetch ?? ctx.fetch,
-						result: userCtx.result !== void 0 ? userCtx.result : userCtx instanceof Response ? userCtx : ctx.result,
-						error: userCtx.error ?? ctx.error
-					});
-					if (result.error) throw result.error;
-					return result;
-				};
-				const result = await middlewareFn({
-					...ctx,
-					next: userNext
-				});
-				if (isRedirect(result)) return {
-					...ctx,
-					error: result
-				};
-				if (result instanceof Response) return {
-					...ctx,
-					result
-				};
-				if (!result) throw new Error("User middleware returned undefined. You must call next() or return a result in your middlewares.");
-				return result;
-			}
-			return callNextMiddleware(ctx);
-		} catch (error) {
-			return {
-				...ctx,
-				error
+	const flattenedMiddlewares = flattenMiddlewares((getStartOptions()?.functionMiddleware || []).concat(middlewares), void 0, env === "server" ? new Set(getStartContextServerOnly({ throwIfNotFound: false })?.executedRequestMiddlewares) : void 0);
+	let index = 0;
+	const callNextMiddleware = async (callerCtx, userCtx) => {
+		let ctx = callerCtx;
+		if (userCtx !== void 0) {
+			ctx = {
+				...callerCtx,
+				...userCtx
 			};
+			ctx.context = safeObjectMerge(callerCtx.context, userCtx.context);
+			ctx.sendContext = mergeOptionalSendContext(callerCtx.sendContext, userCtx.sendContext);
+			ctx.headers = mergeOptionalHeaders(callerCtx.headers, userCtx.headers);
+			ctx._callSiteFetch = callerCtx._callSiteFetch;
+			ctx.fetch = callerCtx._callSiteFetch ?? userCtx.fetch ?? callerCtx.fetch;
+			ctx.result = userCtx.result !== void 0 ? userCtx.result : userCtx instanceof Response ? userCtx : callerCtx.result;
 		}
+		let result = ctx;
+		while (index < flattenedMiddlewares.length) {
+			const options = flattenedMiddlewares[index++].options;
+			const validator = options.validator;
+			if (validator && env === "server") ctx.data = await execValidator(validator, ctx.data);
+			const middlewareFn = env === "client" ? options.client : options.server;
+			if (middlewareFn) {
+				result = await middlewareFn({
+					...ctx,
+					next: (nextCtx = {}) => callNextMiddleware(ctx, nextCtx)
+				});
+				if (result instanceof Response) {
+					if (isRedirect(result)) throw result;
+					result = {
+						...ctx,
+						result
+					};
+				} else if (!result) throw new Error("User middleware returned undefined. You must call next() or return a result in your middlewares.");
+				break;
+			}
+		}
+		if ("error" in result) throw result.error;
+		return result;
 	};
-	return callNextMiddleware({
+	const initialCtx = {
 		...opts,
-		headers: opts.headers || {},
-		sendContext: opts.sendContext || {},
+		headers: opts.headers || (env === "client" ? {} : void 0),
+		sendContext: opts.sendContext,
 		context: opts.context || createNullProtoObject(),
 		_callSiteFetch: opts.fetch
-	});
+	};
+	if (initialCtx.sendContext !== void 0) initialCtx.sendContext ||= {};
+	try {
+		return await callNextMiddleware(initialCtx);
+	} catch (error) {
+		return {
+			...initialCtx,
+			error
+		};
+	}
 }
-function flattenMiddlewares(middlewares, maxDepth = 100) {
-	const seen = /* @__PURE__ */ new Set();
+function flattenMiddlewares(middlewares, maxDepth = 100, seen = /* @__PURE__ */ new Set()) {
 	const flattened = [];
 	const recurse = (middleware, depth) => {
 		if (depth > maxDepth) throw new Error(`Middleware nesting depth exceeded maximum of ${maxDepth}. Check for circular references.`);
@@ -570,7 +996,7 @@ function serverFnBaseToMiddleware(options) {
 	return {
 		"~types": void 0,
 		options: {
-			inputValidator: options.validator ?? options.inputValidator,
+			validator: options.validator,
 			client: async ({ next, sendContext, fetch, ...ctx }) => {
 				const payload = {
 					...ctx,
@@ -579,12 +1005,12 @@ function serverFnBaseToMiddleware(options) {
 				};
 				return next(await options.extractedFn?.(payload));
 			},
-			server: async ({ next, ...ctx }) => {
+			server: async ({ next: _next, ...ctx }) => {
 				const result = await options.serverFn?.(ctx);
-				return next({
+				return {
 					...ctx,
 					result
-				});
+				};
 			}
 		}
 	};
@@ -594,19 +1020,14 @@ var createMiddleware = (options, __opts) => {
 		type: "request",
 		...__opts || options
 	};
-	const setValidator = (validator) => {
-		return createMiddleware({}, Object.assign(resolvedOptions, {
-			validator,
-			inputValidator: validator
-		}));
-	};
 	return {
 		options: resolvedOptions,
 		middleware: (middleware) => {
 			return createMiddleware({}, Object.assign(resolvedOptions, { middleware }));
 		},
-		validator: setValidator,
-		inputValidator: setValidator,
+		validator: (validator) => {
+			return createMiddleware({}, Object.assign(resolvedOptions, { validator }));
+		},
 		client: (client) => {
 			return createMiddleware({}, Object.assign(resolvedOptions, { client }));
 		},
@@ -616,19 +1037,33 @@ var createMiddleware = (options, __opts) => {
 	};
 };
 var innerCreateCsrfMiddleware = (opts = {}) => {
-	return createMiddleware().server(async (ctx) => {
+	const continueRequest = (result, ctx) => {
+		return isValidationResultAllowed(result, opts) ? ctx.next() : getFailureResponse(opts, ctx);
+	};
+	const validateRequest = (ctx) => {
+		const result = validateCsrfRequest(opts, ctx);
+		if (isPromise(result)) return result.then((result) => continueRequest(result, ctx));
+		return continueRequest(result, ctx);
+	};
+	return createMiddleware().server((ctx) => {
 		const csrfCtx = ctx;
-		if (opts.filter && !await opts.filter(csrfCtx)) return ctx.next();
-		if (await isCsrfRequestAllowed(opts, csrfCtx)) return ctx.next();
-		return getFailureResponse(opts, csrfCtx);
+		try {
+			if (opts.filter) {
+				const shouldValidate = opts.filter(csrfCtx);
+				if (isPromise(shouldValidate)) return shouldValidate.then((shouldValidate) => shouldValidate ? validateRequest(csrfCtx) : ctx.next());
+				if (!shouldValidate) return ctx.next();
+			}
+			return validateRequest(csrfCtx);
+		} catch (error) {
+			return Promise.reject(error);
+		}
 	});
 };
 var createCsrfMiddleware = innerCreateCsrfMiddleware;
-async function isCsrfRequestAllowed(opts, ctx) {
-	const result = await getCsrfRequestValidationResult(opts, ctx);
+function isValidationResultAllowed(result, opts) {
 	return result === true || result === void 0 && opts.allowRequestsWithoutOriginCheck === true;
 }
-async function getCsrfRequestValidationResult(opts, ctx) {
+function validateCsrfRequest(opts, ctx) {
 	const fetchSite = ctx.request.headers.get("Sec-Fetch-Site");
 	if (fetchSite !== null) return matchValue(opts.secFetchSite ?? "same-origin", fetchSite, ctx);
 	const origin = ctx.request.headers.get("Origin");
@@ -645,7 +1080,7 @@ async function getCsrfRequestValidationResult(opts, ctx) {
 	}
 	return isRefererSameOrigin(referer, new URL(ctx.request.url).origin);
 }
-async function matchValue(matcher, value, ctx) {
+function matchValue(matcher, value, ctx) {
 	if (typeof matcher === "function") return matcher(value, ctx);
 	if (Array.isArray(matcher)) return matcher.includes(value);
 	return value === matcher;
@@ -664,12 +1099,43 @@ function isRefererSameOrigin(referer, requestOrigin) {
 	const code = referer.charCodeAt(requestOrigin.length);
 	return code === 47 || code === 63 || code === 35;
 }
-async function getFailureResponse(opts, ctx) {
+function getFailureResponse(opts, ctx) {
 	if (typeof opts.failureResponse === "function") return opts.failureResponse(ctx);
 	return opts.failureResponse?.clone() ?? new Response("Forbidden", { status: 403 });
 }
-var serovalPlugins = void 0;
-var FORM_DATA_CONTENT_TYPES = ["multipart/form-data", "application/x-www-form-urlencoded"];
+var SERIALIZED_JSON_HEADERS = /* @__PURE__ */ new Map([
+	["content-type", "application/json"],
+	[X_TSS_SERIALIZED, "true"],
+	[X_TSS_RAW_RESPONSE, null],
+	["location", null]
+]);
+var SERIALIZED_JSON_HEADER_INIT = new Headers({
+	"content-type": "application/json",
+	[X_TSS_SERIALIZED]: "true"
+});
+/** Completed bytes own no stream until the request pipeline accepts them. */
+var DeferredResponse = class {
+	constructor(body) {
+		this.body = body;
+	}
+	createResponse(event) {
+		return createFinalizedResponse(this.body, SERIALIZED_JSON_HEADER_INIT, SERIALIZED_JSON_HEADERS, event);
+	}
+};
+var SERIALIZED_FRAMED_HEADERS = /* @__PURE__ */ new Map([
+	["content-type", TSS_CONTENT_TYPE_FRAMED_VERSIONED],
+	[X_TSS_SERIALIZED, "true"],
+	[X_TSS_RAW_RESPONSE, null],
+	["location", null]
+]);
+var NOT_FOUND_HEADERS = /* @__PURE__ */ new Map([
+	["content-type", "application/json"],
+	[X_TSS_SERIALIZED, null],
+	[X_TSS_RAW_RESPONSE, null],
+	["location", null]
+]);
+var RAW_RESPONSE_HEADERS = /* @__PURE__ */ new Map([[X_TSS_RAW_RESPONSE, "true"]]);
+var THROWN_RESPONSE_HEADERS = /* @__PURE__ */ new Map([[X_TSS_RAW_RESPONSE, "thrown"]]);
 var MAX_PAYLOAD_SIZE = 1e6;
 var MAX_PENDING_SERIALIZATION_RECORDS = 1024;
 var MAX_PENDING_SERIALIZATION_BYTES = 33554432;
@@ -688,86 +1154,104 @@ function runSerializationCleanup(dispose) {
 function cancelRawStream(stream, reason) {
 	stream.cancel(reason).catch(() => {});
 }
-var handleServerAction = async ({ request, context, serverFnId }) => {
+/**
+* Marks a Response thrown during a server-function request so the client
+* rejects the call with it. Redirects keep their own protocol.
+*/
+function toThrownServerFnResponse(response) {
+	return isRedirect(response) ? response : setProtectedResponseHeaders(response, THROWN_RESPONSE_HEADERS);
+}
+/**
+* Builds the reply for a server-function request that failed outside the
+* function, such as in request middleware. Like a failed call, it carries
+* only the thrown value under an `error` key, so the client rethrows it.
+*/
+async function createServerFnErrorResponse(error, serovalPlugins) {
+	if (isNotFound(error)) return isNotFoundResponse(error);
+	const headers = getErrorHeaders(error) ?? new Headers();
+	const { status, statusText } = resolveErrorResponseStatus(error);
+	headers.set("Content-Type", "application/json");
+	headers.set(X_TSS_SERIALIZED, "true");
+	headers.delete(X_TSS_RAW_RESPONSE);
+	headers.delete("location");
+	const plugins = serovalPlugins ?? getSerovalPlugins(defaultSerovalDeserializerPlugins);
+	let serializedError;
+	try {
+		serializedError = JSON.stringify(await toCrossJSONAsync({ error }, {
+			refs: /* @__PURE__ */ new Map(),
+			plugins
+		}));
+	} catch (serializationError) {
+		serializedError = JSON.stringify(await toCrossJSONAsync({ error: serializationError }, {
+			refs: /* @__PURE__ */ new Map(),
+			plugins
+		}));
+	}
+	const errorResponse = new Response(serializedError, {
+		status,
+		statusText,
+		headers
+	});
+	protectResponseHeaders(errorResponse, SERIALIZED_JSON_HEADERS);
+	return errorResponse;
+}
+var handleServerAction = async ({ request, serverFnId }) => {
 	const methodUpper = request.method.toUpperCase();
-	const url = new URL(request.url);
 	const action = await getServerFnById(serverFnId, { origin: "client" });
 	if (action.method && methodUpper !== action.method) return new Response(`expected ${action.method} method. Got ${methodUpper}`, {
 		status: 405,
 		headers: { Allow: action.method }
 	});
-	const isServerFn = request.headers.get("x-tsr-serverFn") === "true";
-	serovalPlugins ??= getSerovalPlugins(defaultSerovalDeserializerPlugins);
-	const contentType = request.headers.get("Content-Type");
+	const headers = request.headers;
+	const isServerFn = headers.get("x-tsr-serverfn") === "true";
+	let serovalPlugins;
+	const getRequestSerovalPlugins = () => {
+		return serovalPlugins ??= getSerovalPlugins(defaultSerovalDeserializerPlugins);
+	};
+	const contentType = headers.get("content-type");
 	try {
 		let res;
-		if (FORM_DATA_CONTENT_TYPES.some((type) => contentType && contentType.includes(type))) {
+		if (contentType && (contentType.includes("multipart/form-data") || contentType.includes("application/x-www-form-urlencoded"))) {
 			if (methodUpper === "GET") invariant();
 			const formData = await request.formData();
 			const serializedContext = formData.get(TSS_FORMDATA_CONTEXT);
 			formData.delete(TSS_FORMDATA_CONTEXT);
 			const params = {
-				context,
 				data: formData,
 				method: methodUpper
 			};
 			if (typeof serializedContext === "string") try {
-				const deserializedContext = fromJSON(JSON.parse(serializedContext), { plugins: serovalPlugins });
-				if (typeof deserializedContext === "object" && deserializedContext) params.context = safeObjectMerge(deserializedContext, context);
+				const parsedContext = JSON.parse(serializedContext);
+				const deserializedContext = fromJSON(parsedContext, { plugins: getRequestSerovalPlugins() });
+				if (typeof deserializedContext === "object" && deserializedContext) params.context = deserializedContext;
 			} catch (e) {}
 			res = await action(params);
-		} else if (methodUpper === "GET") {
-			const payloadParam = url.searchParams.get("payload");
-			if (payloadParam && payloadParam.length > MAX_PAYLOAD_SIZE) throw new Error("Payload too large");
-			const payload = payloadParam ? fromJSON(JSON.parse(payloadParam), { plugins: serovalPlugins }) : void 0;
-			res = await action({
-				data: payload?.data,
-				context: safeObjectMerge(payload?.context, context),
-				method: methodUpper
-			});
 		} else {
-			const payload = contentType?.includes("application/json") ? fromJSON(await request.json(), { plugins: serovalPlugins }) : void 0;
+			let json;
+			if (methodUpper === "GET") {
+				const payloadParam = getParsedRequestUrl(request).searchParams.get("payload");
+				if (payloadParam && payloadParam.length > MAX_PAYLOAD_SIZE) throw new Error("Payload too large");
+				json = payloadParam ? JSON.parse(payloadParam) : void 0;
+			} else if (contentType?.includes("application/json")) json = await request.json();
+			const payload = json === void 0 ? void 0 : fromJSON(json, { plugins: getRequestSerovalPlugins() });
 			res = await action({
 				data: payload?.data,
-				context: safeObjectMerge(payload?.context, context),
+				context: payload?.context,
 				method: methodUpper
 			});
 		}
-		const unwrapped = res.error !== void 0 ? res.error : res.result;
-		if (isNotFound(res)) res = isNotFoundResponse(res);
+		const failed = "error" in res;
+		const unwrapped = failed ? res.error : res.result;
 		if (!isServerFn && (unwrapped instanceof Response || unwrapped === null || typeof unwrapped !== "object")) return unwrapped;
 		if (unwrapped instanceof Response) {
+			if (failed) return toThrownServerFnResponse(unwrapped);
 			if (isRedirect(unwrapped)) return unwrapped;
-			unwrapped.headers.set(X_TSS_RAW_RESPONSE, "true");
-			return unwrapped;
+			return setProtectedResponseHeaders(unwrapped, RAW_RESPONSE_HEADERS);
 		}
-		return serializeResult(res, request.signal, serovalPlugins);
+		return serializeResult(res, request, getRequestSerovalPlugins());
 	} catch (error) {
 		if (error instanceof Response) return error;
-		if (isNotFound(error)) return isNotFoundResponse(error);
-		console.error("Server Fn Error!", error);
-		const serializedError = JSON.stringify(await toCrossJSONAsync(error, {
-			refs: /* @__PURE__ */ new Map(),
-			plugins: serovalPlugins
-		}));
-		const response = getResponse();
-		const headers = {
-			"Content-Type": "application/json",
-			[X_TSS_SERIALIZED]: "true"
-		};
-		try {
-			return new Response(serializedError, {
-				status: response.status ?? 500,
-				statusText: response.statusText,
-				headers
-			});
-		} catch {
-			return new Response(serializedError, {
-				status: 500,
-				statusText: "",
-				headers
-			});
-		}
+		return createServerFnErrorResponse(error, serovalPlugins);
 	}
 };
 /**
@@ -775,8 +1259,7 @@ var handleServerAction = async ({ request, context, serverFnId }) => {
 * synchronously without RawStreams becomes plain JSON; everything else is a
 * framed response whose records and raw streams are multiplexed in order.
 */
-function serializeResult(res, signal, plugins) {
-	const alsResponse = getResponse();
+function serializeResult(res, request, plugins) {
 	const initialRecords = [];
 	let initialBytes = 0;
 	const pendingRawStreams = [];
@@ -836,14 +1319,7 @@ function serializeResult(res, signal, plugins) {
 		throw serializationFailure[0];
 	}
 	if (!done) disposeSerialization = dispose;
-	if (done && pendingRawStreams.length === 0 && initialRecords.length === 1) return new Response(initialRecords[0], {
-		status: alsResponse.status,
-		statusText: alsResponse.statusText,
-		headers: {
-			"Content-Type": "application/json",
-			[X_TSS_SERIALIZED]: "true"
-		}
-	});
+	if (done && pendingRawStreams.length === 0 && initialRecords.length === 1) return new DeferredResponse(initialRecords[0]);
 	if (done && initialRecords.length === 1) {
 		const json = initialRecords[0];
 		if (json.byteLength > 16777216) {
@@ -864,7 +1340,7 @@ function serializeResult(res, signal, plugins) {
 			cancel(reason) {
 				for (const registration of rawStreams) cancelRawStream(registration.stream, reason);
 			}
-		}), { signal });
+		}), { signal: request.signal });
 	}
 	const { readable, writable } = new TransformStream();
 	const writer = writable.getWriter();
@@ -937,33 +1413,45 @@ function serializeResult(res, signal, plugins) {
 		abortRecordStream(error);
 	});
 	return createFramedResponse(readable, {
-		signal: AbortSignal.any([recordAbortController.signal, signal]),
+		signal: AbortSignal.any([recordAbortController.signal, request.signal]),
 		onCancel: abortRecordStream
 	});
-	function createFramedResponse(records, options) {
-		const multiplexedStream = createMultiplexedStream(records, options);
-		try {
-			return new Response(multiplexedStream, {
-				status: alsResponse.status,
-				statusText: alsResponse.statusText,
-				headers: {
-					"Content-Type": TSS_CONTENT_TYPE_FRAMED_VERSIONED,
-					[X_TSS_SERIALIZED]: "true"
-				}
-			});
-		} catch (error) {
-			cancelRawStream(multiplexedStream, error);
-			throw error;
-		}
+}
+function createFramedResponse(records, options) {
+	const multiplexedStream = createMultiplexedStream(records, options);
+	const { status, statusText } = getSerializedResponseState();
+	try {
+		const response = new Response(multiplexedStream, {
+			status,
+			statusText,
+			headers: {
+				"Content-Type": TSS_CONTENT_TYPE_FRAMED_VERSIONED,
+				[X_TSS_SERIALIZED]: "true"
+			}
+		});
+		protectResponseHeaders(response, SERIALIZED_FRAMED_HEADERS);
+		return response;
+	} catch (error) {
+		cancelRawStream(multiplexedStream, error);
+		throw error;
 	}
 }
 function isNotFoundResponse(error) {
 	const { headers, ...rest } = error;
+	let responseHeaders;
+	if (headers) {
+		const copiedHeaders = new Headers(headers);
+		copiedHeaders.set("Content-Type", "application/json");
+		copiedHeaders.delete(X_TSS_SERIALIZED);
+		copiedHeaders.delete(X_TSS_RAW_RESPONSE);
+		copiedHeaders.delete("location");
+		responseHeaders = copiedHeaders;
+	} else responseHeaders = { "Content-Type": "application/json" };
 	const response = new Response(JSON.stringify(rest), {
 		status: 404,
-		headers
+		headers: responseHeaders
 	});
-	response.headers.set("Content-Type", "application/json");
+	protectResponseHeaders(response, NOT_FOUND_HEADERS);
 	return response;
 }
 var LINK_PARAM_TOKEN_RE = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
@@ -1055,7 +1543,7 @@ function collectStaticHintsFromManifest(manifest, matchedRoutes) {
 				rel: attrs.rel,
 				as: "script"
 			};
-			if (attrs.crossOrigin !== void 0) hint.crossOrigin = attrs.crossOrigin;
+			addEarlyHintFetchAttrs(hint, attrs);
 			hints.push(hint);
 		}
 		for (const link of routeManifest.css ?? []) {
@@ -1328,7 +1816,8 @@ async function transformManifestAssets(source, transformFn, _opts) {
 	else if (manifest.inlineCss) manifest.inlineCss = await transformInlineCssStyles(manifest.inlineCss, transformFn);
 	for (const route of Object.values(manifest.routes)) {
 		if (route.preloads?.length) route.preloads = await Promise.all(route.preloads.map(async (link) => {
-			const result = await transformScript(resolveManifestAssetLink(link).href);
+			const resolved = resolveManifestAssetLink(link);
+			const result = await transformScript(resolved.href);
 			return assignManifestLink(link, {
 				href: result.href,
 				crossOrigin: result.crossOrigin
@@ -1371,14 +1860,20 @@ function buildManifest(source, opts) {
 		routes: { ...source.routes }
 	};
 }
-function getStaticHandlerInlineCssDefault(handlerInlineCss) {
+/**
+* The inline-CSS choice that needs no handler callback: a request override
+* wins, then a static handler option, then the default. Undefined when a
+* handler callback has to decide.
+*/
+function getStaticInlineCss(requestInlineCss, handlerInlineCss) {
+	if (requestInlineCss !== void 0) return requestInlineCss;
 	if (typeof handlerInlineCss === "function") return;
 	return handlerInlineCss ?? true;
 }
 async function resolveInlineCssForRequest(opts) {
-	if (opts.requestInlineCss !== void 0) return opts.requestInlineCss;
-	if (typeof opts.handlerInlineCss === "function") return await opts.handlerInlineCss({ request: opts.request });
-	return opts.handlerInlineCss ?? true;
+	const inlineCss = getStaticInlineCss(opts.requestInlineCss, opts.handlerInlineCss);
+	if (inlineCss !== void 0) return inlineCss;
+	return await opts.handlerInlineCss({ request: opts.request });
 }
 function createCachedBaseManifestLoader(loadBaseManifest) {
 	let baseManifestPromise;
@@ -1417,7 +1912,7 @@ function createFinalManifestTransformResolver(transformAssets, opts) {
 function createFinalManifestResolver(opts) {
 	const finalManifestCache = /* @__PURE__ */ new Map();
 	const transformResolver = createFinalManifestTransformResolver(opts.transformAssets, { cacheCreateTransform: opts.cacheCreateTransform });
-	const handlerDefaultInlineCss = getStaticHandlerInlineCssDefault(opts.inlineCss);
+	const handlerDefaultInlineCss = getStaticInlineCss(void 0, opts.inlineCss);
 	const getRequestManifestOptions = async (requestOpts) => {
 		const transformFn = await transformResolver.getTransformFn({
 			warmup: false,
@@ -1451,25 +1946,35 @@ function createFinalManifestResolver(opts) {
 			getTransformFn: () => transformResolver.getTransformFn({ warmup: true }),
 			onError: transformResolver.clearCachedCreateTransform
 		}),
-		resolveCached: (requestOpts) => resolveRequest(requestOpts, finalManifestCache),
+		resolveCached: (requestOpts) => {
+			const inlineCss = getStaticInlineCss(requestOpts.requestInlineCss, opts.inlineCss);
+			if (transformResolver.cache && inlineCss !== void 0) {
+				const cached = finalManifestCache.get(getFinalManifestCacheKey(inlineCss));
+				if (cached) return cached;
+			}
+			return resolveRequest(requestOpts, finalManifestCache);
+		},
 		resolveUncached: (requestOpts) => resolveRequest(requestOpts, void 0)
 	};
 }
 function getFinalManifestCacheKey(inlineCss) {
 	return inlineCss ? "inline-css" : "linked-css";
 }
-function cacheFinalManifestPromise(cachedFinalManifestPromises, cacheKey, promise) {
-	const cachedFinalManifestPromise = promise.catch((error) => {
-		if (cachedFinalManifestPromises.get(cacheKey) === cachedFinalManifestPromise) cachedFinalManifestPromises.delete(cacheKey);
+function cacheFinalManifestPromise(finalManifestCache, cacheKey, promise) {
+	const cachedPromise = promise.then((manifest) => {
+		if (finalManifestCache.get(cacheKey) === cachedPromise) finalManifestCache.set(cacheKey, manifest);
+		return manifest;
+	}, (error) => {
+		if (finalManifestCache.get(cacheKey) === cachedPromise) finalManifestCache.delete(cacheKey);
 		throw error;
 	});
-	cachedFinalManifestPromises.set(cacheKey, cachedFinalManifestPromise);
-	return cachedFinalManifestPromise;
+	finalManifestCache.set(cacheKey, cachedPromise);
+	return cachedPromise;
 }
-function getOrCreateCachedFinalManifestPromise(cachedFinalManifestPromises, cacheKey, computeFinalManifest) {
-	const cachedFinalManifestPromise = cachedFinalManifestPromises.get(cacheKey);
-	if (cachedFinalManifestPromise) return cachedFinalManifestPromise;
-	return cacheFinalManifestPromise(cachedFinalManifestPromises, cacheKey, Promise.resolve().then(computeFinalManifest));
+function getOrCreateCachedFinalManifest(finalManifestCache, cacheKey, computeFinalManifest) {
+	const cached = finalManifestCache.get(cacheKey);
+	if (cached) return cached;
+	return cacheFinalManifestPromise(finalManifestCache, cacheKey, Promise.resolve().then(computeFinalManifest));
 }
 async function buildFinalManifest(opts) {
 	return opts.transformFn ? await transformManifestAssets(opts.base, opts.transformFn, { inlineCss: opts.inlineCss }) : buildManifest(opts.base, { inlineCss: opts.inlineCss });
@@ -1482,20 +1987,20 @@ async function resolveFinalManifest(opts) {
 			inlineCss: opts.inlineCss
 		});
 	};
-	if (opts.finalManifestCache && (!opts.transformFn || opts.cache)) return getOrCreateCachedFinalManifestPromise(opts.finalManifestCache, getFinalManifestCacheKey(opts.inlineCss), computeFinalManifest);
+	if (opts.finalManifestCache && (!opts.transformFn || opts.cache)) return getOrCreateCachedFinalManifest(opts.finalManifestCache, getFinalManifestCacheKey(opts.inlineCss), computeFinalManifest);
 	return computeFinalManifest();
 }
 function warmupFinalManifest(opts) {
 	if (!opts.enabled || opts.handlerDefaultInlineCss === void 0 || !opts.cache) return;
 	const inlineCss = opts.handlerDefaultInlineCss;
-	const warmupPromise = getOrCreateCachedFinalManifestPromise(opts.finalManifestCache, getFinalManifestCacheKey(inlineCss), async () => {
+	const warmupPromise = cacheFinalManifestPromise(opts.finalManifestCache, getFinalManifestCacheKey(inlineCss), Promise.resolve().then(async () => {
 		const [base, transformFn] = await Promise.all([opts.getBaseManifest(), opts.getTransformFn()]);
 		return buildFinalManifest({
 			base,
 			transformFn,
 			inlineCss
 		});
-	});
+	}));
 	if (opts.onError) warmupPromise.catch(opts.onError);
 	return warmupPromise;
 }
@@ -1515,18 +2020,18 @@ var ServerFunctionSerializationAdapter = createSerializationAdapter({
 				context: opts?.context,
 				method: serverFn.method ?? "GET"
 			}, signal);
-			if (result.error !== void 0) throw result.error;
+			if ("error" in result) throw result.error;
 			return result.result;
 		};
 		return fn;
 	}
 });
-function getStartResponseHeaders(opts) {
-	return mergeHeaders({ "Content-Type": "text/html; charset=utf-8" }, ..._getRenderedMatches(opts.router.stores.matches.get()).map((match) => {
-		return match.headers;
-	}));
+function getStartResponseHeaders(router) {
+	const headers = new Headers({ "content-type": "text/html; charset=utf-8" });
+	const matches = _getRenderedMatches(router.stores.matches.get());
+	return matches.some((match) => match.headers) ? mergeHeaders(headers, ...matches.map((match) => match.headers)) : headers;
 }
-var entriesPromise;
+var cachedEntries;
 var defaultCsrfMiddleware = createCsrfMiddleware({ filter: (ctx) => ctx.handlerType === "serverFn" });
 var getCachedBaseManifest = createCachedBaseManifestLoader(() => getStartManifest());
 var getProdBaseManifest = () => getCachedBaseManifest();
@@ -1534,9 +2039,9 @@ var getBaseManifest = getProdBaseManifest;
 var createEarlyHintsForRequest = createEarlyHintsCollector;
 async function loadEntries() {
 	const [routerEntry, startEntry, pluginAdapters] = await Promise.all([
-		import("./router-B5uHUqQd.mjs").then((n) => n.t),
-		import("./start-5Z2QO8AU.mjs"),
-		import("./empty-plugin-adapters-D9UWiqvJ.mjs")
+		import("./router-Blj67TKy.mjs").then((n) => n.t),
+		import("./start-COmmreO7.mjs"),
+		import("./empty-plugin-adapters-CeyhLWeJ.mjs")
 	]);
 	return {
 		routerEntry,
@@ -1545,8 +2050,11 @@ async function loadEntries() {
 	};
 }
 function getEntries() {
-	if (!entriesPromise) entriesPromise = loadEntries();
-	return entriesPromise;
+	if (!cachedEntries) cachedEntries = loadEntries().then((entries) => {
+		cachedEntries = entries;
+		return entries;
+	});
+	return cachedEntries;
 }
 var ROUTER_BASEPATH = "/";
 var SERVER_FN_BASE = "/_serverFn/";
@@ -1564,16 +2072,21 @@ function throwIfMayNotDefer() {
 function getResponseFromResult(result) {
 	return isSsrResponse(result) || result instanceof Response ? result : result?.response;
 }
-var responseBodySources = /* @__PURE__ */ new WeakMap();
 function disposeResponseResult(result, reason) {
 	const response = getResponseFromResult(result);
 	if (isSsrResponse(response) || response instanceof Response) disposeSsrResponse(response, reason);
 }
-function hasResponseBody(value) {
-	return value instanceof Response && value.body !== null;
-}
-function inheritsResponseOwnership(ownership, candidate) {
-	return hasResponseBody(candidate) && (candidate.body === ownership.response.body || responseBodySources.get(candidate) === ownership.response);
+/**
+* A new body continues the owned one when it is the same stream, or when the
+* owned body is already being read, as by a pipe, a tee, or a `Response` that
+* copies a body by reading it (Bun, or a wrapped global `Response`). Start
+* cannot tell such a reader from one that stops early, so it disposes only an
+* unread body. A stream whose reader stops early ends with the request's abort
+* or the SSR stream's lifetime limit.
+*/
+function inheritsResponseOwnership(ownership, body) {
+	const ownedBody = ownership.response.body;
+	return body === ownedBody || ownedBody.locked;
 }
 function disposeResponseOwnership(ownership, reason) {
 	const { response, sourceBody, streamResponse } = ownership;
@@ -1603,54 +2116,80 @@ function createLateResponseDisposer(signal) {
 * Compose middleware around a terminal response handler. With no middleware
 * the terminal runs directly.
 */
-async function executeMiddleware(middlewares, terminal, ctx, signal, terminalNext) {
+async function executeMiddleware(middlewares, terminal, ctx, signal, event, terminalNext) {
 	let index = -1;
 	let responseOwnership;
-	let settled = false;
+	let returnedDepth = Infinity;
 	const disposeAbandonedResult = createLateResponseDisposer(signal);
-	const setResponse = (response) => {
-		const ssrResponse = isSsrResponse(response) ? response : void 0;
-		const streamResponse = ssrResponse?.serverSsrCleanup === "stream" ? ssrResponse : void 0;
-		const exposed = ssrResponse ? ssrResponse.response : response;
+	const adoptResponse = (exposed, streamResponse) => {
 		const current = responseOwnership;
-		if (settled) {
-			if (exposed !== ctx.response) disposeResponseResult(response, "late middleware response");
-			return;
-		}
+		const body = exposed instanceof Response ? exposed.body : null;
+		const response = exposed;
+		if (streamResponse && !body && streamResponse !== current?.streamResponse) streamResponse.dispose("Response body dropped by Start reconciliation");
 		if (current && current.response === exposed) current.streamResponse ??= streamResponse;
-		else if (current && inheritsResponseOwnership(current, exposed)) {
-			current.response = exposed;
+		else if (current && body && inheritsResponseOwnership(current, body)) {
+			if (body === current.response.body) transferResponseProtocol(current.response, response);
+			current.response = response;
 			current.streamResponse ??= streamResponse;
 		} else {
-			if (current) disposeResponseOwnership(current, "middleware response replaced");
-			if (hasResponseBody(exposed)) responseOwnership = {
-				response: exposed,
-				sourceBody: exposed.body,
+			if (current) {
+				responseOwnership = void 0;
+				disposeResponseOwnership(current, "middleware response replaced");
+			}
+			responseOwnership = body ? {
+				response,
+				sourceBody: body,
 				streamResponse
-			};
-			else responseOwnership = void 0;
+			} : void 0;
 		}
 		ctx.response = exposed;
 	};
-	const reconcileCtxResponse = () => {
-		if (ctx.response !== responseOwnership?.response) setResponse(ctx.response);
+	const disposeCurrentBody = (reason) => {
+		const current = responseOwnership;
+		responseOwnership = void 0;
+		if (current) disposeResponseOwnership(current, reason);
+	};
+	const setResponse = (response, caller) => {
+		const owned = response !== void 0 && response === responseOwnership?.response;
+		const ssrResponse = !owned && isSsrResponse(response) ? response : void 0;
+		const exposed = ssrResponse ? ssrResponse.response : response;
+		if (returnedDepth <= caller) {
+			if (exposed !== ctx.response) disposeResponseResult(response, "late middleware response");
+			return;
+		}
+		if (!owned) adoptResponse(exposed, ssrResponse?.serverSsrCleanup === "stream" ? ssrResponse : void 0);
+		if (exposed instanceof Response) {
+			const reconciled = reconcileResponse(exposed, event, disposeCurrentBody);
+			if (reconciled !== exposed) adoptRebuilt(exposed, reconciled);
+		}
+	};
+	const adoptRebuilt = (exposed, rebuilt) => {
+		const current = responseOwnership;
+		if (current?.response === exposed && rebuilt.body) {
+			current.response = rebuilt;
+			ctx.response = rebuilt;
+		} else adoptResponse(rebuilt);
 	};
 	let nextPromise;
 	function next(nextCtx) {
-		const result = runNext(nextCtx);
+		const result = runNext(index, nextCtx);
 		nextPromise = result;
 		return result;
 	}
-	async function runNext(nextCtx) {
+	async function runNext(caller, nextCtx) {
 		signal.throwIfAborted();
 		if (nextCtx) {
 			if (nextCtx.context) ctx.context = safeObjectMerge(ctx.context, nextCtx.context);
-			for (const key of Object.keys(nextCtx)) if (key === "response") setResponse(nextCtx.response);
-			else if (key !== "context") ctx[key] = nextCtx[key];
+			const keys = Object.keys(nextCtx);
+			for (let i = 0; i < keys.length; i++) {
+				const key = keys[i];
+				if (key === "response") setResponse(nextCtx.response, caller);
+				else if (key !== "context") ctx[key] = nextCtx[key];
+			}
 		}
-		index++;
-		const isTerminal = index === middlewares.length;
-		const middleware = index < middlewares.length ? middlewares[index] : isTerminal ? terminal : void 0;
+		const depth = ++index;
+		const isTerminal = depth === middlewares.length;
+		const middleware = depth < middlewares.length ? middlewares[depth] : isTerminal ? terminal : void 0;
 		const middlewareNext = isTerminal && terminalNext ? terminalNext : next;
 		if (!middleware) return ctx;
 		let result;
@@ -1661,45 +2200,61 @@ async function executeMiddleware(middlewares, terminal, ctx, signal, terminalNex
 			});
 			if (nextPromise && pending === nextPromise) {
 				nextPromise = void 0;
-				await pending;
-				if (signal.aborted) throw signal.reason;
-				return ctx;
+				result = await pending;
+				signal.throwIfAborted();
 			} else if (!isPromise(pending)) {
 				result = pending;
 				signal.throwIfAborted();
 			} else result = await waitForReason(pending, signal, disposeAbandonedResult, disposeAbandonedResult);
 		} catch (err) {
-			reconcileCtxResponse();
+			if (depth < returnedDepth) returnedDepth = depth;
+			if (returnedDepth > caller) adoptResponse(ctx.response);
 			if (signal.aborted) {
 				if (result !== void 0) disposeAbandonedResult(result);
 				if (err !== signal.reason) disposeAbandonedResult(err);
 				throw signal.reason;
 			}
 			if (err instanceof Response) {
-				setResponse(err);
+				setResponse(ctx.handlerType === "serverFn" ? toThrownServerFnResponse(err) : err, caller);
 				return ctx;
 			}
 			throw err;
 		}
+		if (depth < returnedDepth) returnedDepth = depth;
 		if (isTerminal && terminalNext && !result) throwRouteHandlerError();
-		reconcileCtxResponse();
+		if (isTerminal && !terminalNext && result instanceof DeferredResponse) {
+			if (returnedDepth > caller) {
+				adoptResponse(void 0);
+				adoptResponse(result.createResponse(event));
+			}
+			return ctx;
+		}
 		if (result && result !== ctx) {
 			const response = getResponseFromResult(result);
-			if (response !== void 0 && response !== ctx.response) setResponse(response);
-			if (response !== result && result.context && result.context !== ctx.context) ctx.context = safeObjectMerge(ctx.context, result.context);
-		}
+			if (response !== void 0) {
+				if (ctx.response !== responseOwnership?.response && ctx.response !== response && returnedDepth > caller) adoptResponse(ctx.response);
+				setResponse(response, caller);
+			} else setResponse(ctx.response, caller);
+			if (returnedDepth > caller && response !== result && result.context && result.context !== ctx.context) ctx.context = safeObjectMerge(ctx.context, result.context);
+		} else setResponse(ctx.response, caller);
 		return ctx;
 	}
 	try {
-		await runNext();
-		const response = ctx.response;
+		await runNext(-1);
+		let response = ctx.response;
 		if (!response) throwRouteHandlerError();
-		reconcileCtxResponse();
 		if (signal.aborted) throw signal.reason;
-		settled = true;
+		returnedDepth = -1;
+		if (middlewares.length && ctx.handlerType === "serverFn") {
+			const restored = restoreResponseProtocol(response, event);
+			if (restored !== response) {
+				adoptRebuilt(response, restored);
+				response = restored;
+			}
+		}
 		return responseOwnership ? getOwnedResponse(responseOwnership) : response;
 	} catch (err) {
-		settled = true;
+		returnedDepth = -1;
 		if (responseOwnership) disposeResponseOwnership(responseOwnership, signal.aborted ? signal.reason : err);
 		throw err;
 	}
@@ -1743,18 +2298,24 @@ function createStartHandler(cbOrOptions) {
 	});
 	const resolveManifestForRequest = finalManifestResolver.resolveCached;
 	finalManifestResolver.warmup({ getBaseManifest: () => getBaseManifest(void 0) });
-	const startRequestResolver = async (request, requestOpts) => {
+	const startRequestResolver = async (request, requestOpts, event) => {
 		const signal = request.signal;
 		let router;
 		let routerPromise;
 		let responseOwnsCleanup = false;
+		let response;
 		try {
 			signal.throwIfAborted();
-			const { url, handledProtocolRelativeURL } = getNormalizedURL(request.url);
-			const href = url.pathname + url.search + url.hash;
-			const origin = url.origin;
-			if (handledProtocolRelativeURL) return Response.redirect(url, 308);
-			const entries = await waitForReason(getEntries(), signal);
+			const requestUrl = event.requestUrl;
+			let url = requestUrl;
+			const pathname = url.pathname;
+			if (!SERVER_FN_BASE || !pathname.startsWith(SERVER_FN_BASE) || pathname.includes("%") || pathname.startsWith("//")) {
+				const normalized = getNormalizedURL(requestUrl);
+				url = normalized.url;
+				if (normalized.handledProtocolRelativeURL) return finalizeResponse(Response.redirect(url, 308), event);
+			}
+			const pendingEntries = getEntries();
+			const entries = isPromise(pendingEntries) ? await waitForReason(pendingEntries, signal) : pendingEntries;
 			const isServerFnRequest = !!SERVER_FN_BASE && url.pathname.startsWith(SERVER_FN_BASE);
 			const startInstance = entries.startEntry.startInstance;
 			let startOptions;
@@ -1774,22 +2335,29 @@ function createStartHandler(cbOrOptions) {
 				requestMiddleware: startInstance ? startOptions.requestMiddleware : isServerFnRequest ? [defaultCsrfMiddleware] : void 0,
 				serializationAdapters
 			};
-			const flattenedRequestMiddlewares = requestStartOptions.requestMiddleware ? flattenMiddlewares(requestStartOptions.requestMiddleware) : [];
-			const executedRequestMiddlewares = new Set(flattenedRequestMiddlewares);
+			const requestMiddleware = requestStartOptions.requestMiddleware;
+			let executedRequestMiddlewares;
+			let flattenedRequestMiddlewares = [];
+			if (requestMiddleware?.length) {
+				executedRequestMiddlewares = /* @__PURE__ */ new Set();
+				flattenedRequestMiddlewares = flattenMiddlewares(requestMiddleware, void 0, executedRequestMiddlewares);
+			}
 			const getRouter = () => {
 				routerPromise ??= (async () => {
 					signal.throwIfAborted();
-					const requestRouter = await waitForReason(entries.routerEntry.getRouter(), signal);
+					const routerUrl = url === requestUrl ? getNormalizedURL(url).url : url;
+					const pendingRouter = entries.routerEntry.getRouter();
+					const requestRouter = isPromise(pendingRouter) ? await waitForReason(pendingRouter, signal) : pendingRouter;
 					let isShell = IS_SHELL_ENV;
 					if (IS_PRERENDERING && !isShell) isShell = request.headers.get(HEADERS.TSS_SHELL) === "true";
-					const history = createServerHistory(href);
+					const history = createServerHistory(routerUrl.pathname + routerUrl.search + routerUrl.hash);
 					requestRouter.update({
 						history,
 						isShell,
 						isPrerendering: IS_PRERENDERING,
-						origin: requestRouter.options.origin ?? origin,
+						origin: requestRouter.options.origin ?? routerUrl.origin,
 						defaultSsr: requestStartOptions.defaultSsr,
-						serializationAdapters: [...requestStartOptions.serializationAdapters, ...requestRouter.options.serializationAdapters || []],
+						serializationAdapters: requestRouter.options.serializationAdapters?.length ? [...requestStartOptions.serializationAdapters, ...requestRouter.options.serializationAdapters] : requestStartOptions.serializationAdapters,
 						basepath: ROUTER_BASEPATH
 					});
 					router = requestRouter;
@@ -1814,51 +2382,49 @@ function createStartHandler(cbOrOptions) {
 					contextAfterGlobalMiddlewares: context
 				}, () => handleServerAction({
 					request,
-					context: requestOpts?.context,
 					serverFnId
 				}));
 			} else {
-				const executeRouter = async (serverContext, matchedRoutes) => {
+				const executeRouter = async (serverContext, matchedRoutes, routerInstance) => {
 					if (!/(^|,)\s*(\*\/\*|text\/html)/.test(request.headers.get("Accept") || "*/*")) return normalizeSsrResponse(Response.json({ error: "Only HTML requests are supported here" }, { status: 406 }));
-					const manifest = await waitForReason(resolveManifestForRequest({
+					const pendingManifest = resolveManifestForRequest({
 						request,
 						requestInlineCss: requestOpts?.inlineCss,
 						getBaseManifest: () => getBaseManifest(matchedRoutes)
-					}), signal);
-					const earlyHints = createEarlyHintsForRequest({
-						onEarlyHints: requestOpts?.onEarlyHints,
-						responseLinkHeader: requestOpts?.responseLinkHeader
 					});
+					const manifest = isPromise(pendingManifest) ? await waitForReason(pendingManifest, signal) : pendingManifest;
+					const earlyHints = createEarlyHintsForRequest(requestOpts);
 					earlyHints?.collectStatic({
 						manifest,
 						matchedRoutes
 					});
-					const routerInstance = await getRouter();
+					const storedStartContext = getStartContext({ throwIfNotFound: false });
 					attachRouterServerSsrUtils({
 						router: routerInstance,
 						manifest,
-						getRequestAssets: () => getStartContext({ throwIfNotFound: false })?.requestAssets
+						getRequestAssets: () => storedStartContext?.requestAssets
 					});
 					routerInstance.options.additionalContext = { serverContext };
-					await routerInstance.load({ _signal: signal });
+					await routerInstance.load({
+						_signal: signal,
+						_skipLocationUpdate: true
+					});
 					signal.throwIfAborted();
 					if (routerInstance._serverResult?.type === "redirect") return normalizeSsrResponse(routerInstance._serverResult.redirect);
 					earlyHints?.collectDynamic(_getRenderedMatches(routerInstance.stores.matches.get()));
-					const ctx = getStartContext({ throwIfNotFound: false });
 					await routerInstance.serverSsr.dehydrate({
-						requestAssets: ctx?.requestAssets,
+						requestAssets: storedStartContext?.requestAssets,
 						signal
 					});
 					signal.throwIfAborted();
-					const responseHeaders = getStartResponseHeaders({ router: routerInstance });
+					const responseHeaders = getStartResponseHeaders(routerInstance);
 					earlyHints?.appendResponseHeaders(responseHeaders);
 					signal.throwIfAborted();
-					const disposeLate = createLateResponseDisposer(signal);
-					return normalizeSsrResponse(await waitForReason(cb({
+					return normalizeSsrResponse(await cb({
 						request,
 						router: routerInstance,
 						responseHeaders
-					}), signal, disposeLate, disposeLate));
+					}));
 				};
 				terminal = ({ context }) => runWithStartContext({
 					...startContext,
@@ -1866,22 +2432,45 @@ function createStartHandler(cbOrOptions) {
 				}, () => handleServerRoutes({
 					getRouter,
 					request,
-					url,
 					executeRouter,
 					context,
-					executedRequestMiddlewares
+					executedRequestMiddlewares,
+					signal,
+					event
 				}));
 			}
-			const middlewareResponse = await executeMiddleware(flattenedRequestMiddlewares.map((d) => d.options.server), terminal, {
+			const middlewareCtx = {
 				request,
 				pathname: url.pathname,
 				handlerType,
 				context: createNullProtoObject(requestOpts?.context)
-			}, signal);
+			};
+			let middlewareResponse;
+			try {
+				if (!isServerFnRequest && flattenedRequestMiddlewares.length === 0) middlewareResponse = await terminal(middlewareCtx);
+				else middlewareResponse = await executeMiddleware(flattenedRequestMiddlewares.map((d) => d.options.server), terminal, middlewareCtx, signal, event);
+			} catch (error) {
+				if (signal.aborted) throw error;
+				if (error instanceof Response) middlewareResponse = reconcileResponse(error, event);
+				else if (!isServerFnRequest) throw error;
+				else {
+					const disposeLate = createLateResponseDisposer(signal);
+					middlewareResponse = await waitForReason(runWithStartContext({
+						...startContext,
+						contextAfterGlobalMiddlewares: middlewareCtx.context
+					}, () => createServerFnErrorResponse(error)), signal, disposeLate, disposeLate);
+					middlewareResponse = reconcileResponse(middlewareResponse, event);
+				}
+			}
 			let result;
 			try {
-				result = await handleRedirectResponse(middlewareResponse, getRouter, signal, isServerFnRequest && request.headers.get("x-tsr-serverFn") === "true");
-				if (request.method === "HEAD") result = stripSsrResponseBody(result, "HEAD body stripped");
+				result = normalizeSsrResponse(middlewareResponse);
+				if (isRedirect(result.response)) result = await handleRedirectResponse(result, getRouter, signal, isServerFnRequest && request.headers.get("x-tsr-serverFn") === "true", event);
+				if (request.method === "HEAD" && result.response.body !== null) {
+					const source = result.response;
+					result = stripSsrResponseBody(result, "HEAD body stripped");
+					transferResponseMetadata(source, result.response);
+				}
 			} catch (error) {
 				disposeResponseResult(middlewareResponse, signal.aborted ? signal.reason : error);
 				throw error;
@@ -1889,17 +2478,26 @@ function createStartHandler(cbOrOptions) {
 			bindSsrResponseToRequest(router, result, signal);
 			signal.throwIfAborted();
 			responseOwnsCleanup = result.serverSsrCleanup === "stream";
-			return result.response;
+			response = result.response;
 		} finally {
-			if (router?.serverSsr && !responseOwnsCleanup) router.serverSsr.cleanup();
+			if (router?.serverSsr && !responseOwnsCleanup) {
+				router.serverSsr.cleanup();
+				if (response) response = finalizeResponse(response, event);
+			}
 		}
+		return response;
 	};
-	return requestHandler(startRequestResolver);
+	return withStartRequest(startRequestResolver);
 }
 var relativeRedirectProtocols = /* @__PURE__ */ new Set();
-async function handleRedirectResponse(response, getRouter, signal, serializeRedirect) {
+var SERIALIZED_REDIRECT_HEADERS = /* @__PURE__ */ new Map([
+	["content-type", "application/json"],
+	["location", null],
+	[X_TSS_RAW_RESPONSE, null],
+	[X_TSS_SERIALIZED, null]
+]);
+async function handleRedirectResponse(ssrResponse, getRouter, signal, serializeRedirect, event) {
 	signal.throwIfAborted();
-	const ssrResponse = normalizeSsrResponse(response);
 	const redirect = ssrResponse.response;
 	if (!isRedirect(redirect)) return ssrResponse;
 	const opts = redirect.options;
@@ -1922,13 +2520,21 @@ async function handleRedirectResponse(response, getRouter, signal, serializeRedi
 	if (serializeRedirect) {
 		const redirectOptions = { ...opts };
 		delete redirectOptions.headers;
+		redirectOptions.isSerializedRedirect = true;
 		const responseHeaders = new Headers(redirect.headers);
 		responseHeaders.set("content-type", "application/json");
-		return replaceSsrResponse(ssrResponse, Response.json({
-			...redirectOptions,
-			isSerializedRedirect: true
-		}, { headers: responseHeaders }), "redirect response replaced");
+		responseHeaders.delete("location");
+		responseHeaders.delete(X_TSS_RAW_RESPONSE);
+		responseHeaders.delete(X_TSS_SERIALIZED);
+		const body = JSON.stringify(redirectOptions);
+		if (body === void 0) throw new TypeError("Value is not JSON serializable");
+		disposeSsrResponse(ssrResponse, "redirect response replaced");
+		return {
+			response: createFinalizedResponse(body, responseHeaders, SERIALIZED_REDIRECT_HEADERS, event),
+			serverSsrCleanup: "none"
+		};
 	}
+	ssrResponse.response = finalizeResponse(redirect, event);
 	return ssrResponse;
 }
 function withParsedParams(handler, matchedRoutes) {
@@ -1945,19 +2551,19 @@ function withParsedParams(handler, matchedRoutes) {
 		});
 	};
 }
-async function handleServerRoutes({ getRouter, request, url, executeRouter, context, executedRequestMiddlewares }) {
+async function handleServerRoutes({ getRouter, request, executeRouter, context, executedRequestMiddlewares, signal, event }) {
 	const router = await getRouter();
-	const pathname = executeRewriteInput(router.rewrite, url).pathname;
+	const { pathname } = router.latestLocation;
 	const [matchedRoutes, rawParams, foundRoute] = router.getMatchedRoutes(pathname);
 	const isExactMatch = foundRoute && rawParams["**"] === void 0;
 	const routeMiddlewares = [];
-	let terminalHandler = (ctx) => executeRouter(ctx.context, matchedRoutes);
+	let terminalHandler = (ctx) => executeRouter(ctx.context, matchedRoutes, router);
 	let terminalNext;
 	for (const route of matchedRoutes) {
 		const serverMiddleware = route.options.server?.middleware;
 		if (serverMiddleware) {
 			const flattened = flattenMiddlewares(serverMiddleware);
-			for (const m of flattened) if (!executedRequestMiddlewares.has(m)) routeMiddlewares.push(m.options.server);
+			for (const m of flattened) if (!executedRequestMiddlewares?.has(m)) routeMiddlewares.push(m.options.server);
 		}
 	}
 	const server = foundRoute?.options.server;
@@ -1983,20 +2589,16 @@ async function handleServerRoutes({ getRouter, request, url, executeRouter, cont
 			}
 		}
 	}
-	return normalizeSsrResponse(await executeMiddleware(routeMiddlewares, terminalHandler, {
+	const response = await executeMiddleware(routeMiddlewares, terminalHandler, {
 		request,
 		context,
 		params: rawParams,
 		pathname,
 		handlerType: "router"
-	}, request.signal, terminalNext));
+	}, signal, event, terminalNext);
+	return normalizeSsrResponse(response);
 }
 var fetch = createStartHandler(defaultStreamHandler);
-function createServerEntry(entry) {
-	return { async fetch(...args) {
-		return await entry.fetch(...args);
-	} };
-}
+var createServerEntry = createServerEntry$1;
 var server_default = createServerEntry({ fetch });
-//#endregion
 export { createServerEntry, server_default as default, ssr_exports as i, TSS_SERVER_FUNCTION as n, getServerFnById as r, createServerFn as t };

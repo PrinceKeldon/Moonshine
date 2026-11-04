@@ -1,4 +1,4 @@
-//#region node_modules/d3-color/src/define.js
+// node_modules/d3-color/src/define.js
 function define_default(constructor, factory, prototype) {
 	constructor.prototype = factory.prototype = prototype;
 	prototype.constructor = constructor;
@@ -8,8 +8,7 @@ function extend(parent, definition) {
 	for (var key in definition) prototype[key] = definition[key];
 	return prototype;
 }
-//#endregion
-//#region node_modules/d3-color/src/color.js
+// node_modules/d3-color/src/color.js
 function Color() {}
 var darker = .7;
 var brighter = 1 / darker;
@@ -335,5 +334,4 @@ function clampt(value) {
 function hsl2rgb(h, m1, m2) {
 	return (h < 60 ? m1 + (m2 - m1) * h / 60 : h < 180 ? m2 : h < 240 ? m1 + (m2 - m1) * (240 - h) / 60 : m1) * 255;
 }
-//#endregion
 export { rgb as n, color as t };

@@ -1,6 +1,6 @@
 import { t as createServerFn } from "./ssr.mjs";
-import { t as createServerRpc } from "./createServerRpc-A6pJPYTF.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/wallet-dpDgxYbF.js
+import { t as createServerRpc } from "./createServerRpc-BYs_ScYe.mjs";
+// node_modules/.nitro/vite/services/ssr/assets/wallet-DsJMR9l7.js
 var B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 var SOL_MINT = "So11111111111111111111111111111111111111112";
 var TOKEN_PROGRAMS = ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"];
@@ -168,5 +168,4 @@ var fetchWallet = createServerFn({ method: "POST" }).validator((input) => {
 		};
 	}
 });
-//#endregion
 export { fetchWallet_createServerFn_handler };

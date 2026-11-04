@@ -1,4 +1,4 @@
-//#region node_modules/decimal.js-light/decimal.mjs
+// node_modules/decimal.js-light/decimal.mjs
 var MAX_DIGITS = 1e9;
 var defaults = {
 	precision: 20,
@@ -899,5 +899,4 @@ function config(obj) {
 var Decimal = clone(defaults);
 ONE = new Decimal(1);
 var decimal_default = Decimal;
-//#endregion
 export { decimal_default as t };

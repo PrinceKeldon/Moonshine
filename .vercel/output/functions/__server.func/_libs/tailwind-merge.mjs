@@ -1,4 +1,4 @@
-//#region node_modules/tailwind-merge/dist/bundle-mjs.mjs
+// node_modules/tailwind-merge/dist/bundle-mjs.mjs
 /**
 * Concatenates two arrays faster than the array spread operator.
 */
@@ -3456,5 +3456,4 @@ var getDefaultConfig = () => {
 	};
 };
 var twMerge = /*#__PURE__*/ createTailwindMerge(getDefaultConfig);
-//#endregion
 export { twMerge as t };

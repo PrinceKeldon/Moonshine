@@ -1,5 +1,5 @@
 import { t as __commonJSMin } from "../_runtime.mjs";
-//#region node_modules/eventemitter3/index.js
+// node_modules/eventemitter3/index.js
 var require_eventemitter3 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	var has = Object.prototype.hasOwnProperty;
 	var prefix = "~";
@@ -234,5 +234,4 @@ var require_eventemitter3 = /* @__PURE__ */ __commonJSMin(((exports, module) => 
 	EventEmitter.EventEmitter = EventEmitter;
 	if ("undefined" !== typeof module) module.exports = EventEmitter;
 }));
-//#endregion
 export { require_eventemitter3 as t };
