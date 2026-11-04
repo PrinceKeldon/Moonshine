@@ -78,7 +78,6 @@ telegram:
 # --- Risk ---
 risk:
   start_cash: 1000
-  max_positions: 4
   max_position_pct: 0.08
   min_notional: 25
   fee_rate: 0.003

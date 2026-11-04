@@ -43,7 +43,7 @@ class LedgerTests(unittest.TestCase):
         self.assertEqual(self.ledger.gate_report(max_lateness_s=600), [])
 
     def test_engine_to_ledger_flow_and_recap(self):
-        cfg = RiskConfig(start_cash=10.0, max_positions=2, max_position_pct=0.40, min_notional=1.0, fee_rate=0.0025, min_score=0.60)
+        cfg = RiskConfig(start_cash=10.0, max_position_pct=0.40, min_notional=1.0, fee_rate=0.0025, min_score=0.60)
         book = new_book(cfg)
         book, ds = enter(cfg, book, "SOL/USD", 100.0, 0.9, T0)
         self.ledger.record_many(ds)

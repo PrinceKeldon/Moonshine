@@ -4,7 +4,7 @@ from dataclasses import replace
 
 from bot.risk import RiskConfig, audit, enter, equity, flatten, mark, new_book
 
-CFG = RiskConfig(start_cash=10.0, max_positions=2, max_position_pct=0.40, min_notional=1.0, fee_rate=0.0025,
+CFG = RiskConfig(start_cash=10.0, max_position_pct=0.40, min_notional=1.0, fee_rate=0.0025,
                  revenge_lock_s=86400, daily_loss_pct=0.10, min_score=0.60)
 
 T0 = 1_700_000_000.0
@@ -44,12 +44,14 @@ class EntryRules(unittest.TestCase):
         self.assertEqual(outcomes(ds), [("skip", "no_add")])
         self.assertEqual(book2.positions, book.positions)
 
-    def test_max_positions(self):
-        book = self.book
-        for sym in ("A", "B"):
-            book, _ = enter(self.cfg, book, sym, 10.0, 0.9, T0)
-        _, ds = enter(self.cfg, book, "C", 10.0, 0.9, T0)
-        self.assertEqual(outcomes(ds), [("skip", "max_positions")])
+    def test_open_positions_have_no_count_cap(self):
+        cfg = replace(self.cfg, start_cash=1000.0, max_position_pct=0.08, fee_rate=0.0)
+        book = new_book(cfg)
+        for i in range(8):
+            book, ds = enter(cfg, book, f"token-{i}", 10.0, 0.9, T0)
+            self.assertEqual(outcomes(ds), [("buy", "entry")])
+        self.assertEqual(len(book.positions), 8)
+        self.assertEqual(audit(cfg, book), [])
 
     def test_min_notional_fails_closed(self):
         cfg = replace(self.cfg, min_notional=5.0)
@@ -188,7 +190,7 @@ class ExitRules(unittest.TestCase):
 
 class DailyLossHalt(unittest.TestCase):
     def test_halt_blocks_entries_but_exits_run_and_next_day_resets(self):
-        cfg = replace(CFG, daily_loss_pct=0.02, max_positions=3)  # $0.20 limit on $10
+        cfg = replace(CFG, daily_loss_pct=0.02)  # $0.20 limit on $10
         book = new_book(cfg)
         book, _ = enter(cfg, book, "A", 100.0, 0.9, T0)
         book, _ = enter(cfg, book, "B", 100.0, 0.9, T0)
@@ -216,7 +218,7 @@ class Audit(unittest.TestCase):
 
     def test_random_walk_never_breaks_invariants(self):
         rng = random.Random(7)
-        cfg = replace(CFG, max_positions=3)
+        cfg = CFG
         book = new_book(cfg)
         symbols = ["BTC/USD", "ETH/USD", "SOL/USD", "DOGE/USD"]
         prices = {s: 100.0 for s in symbols}

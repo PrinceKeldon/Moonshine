@@ -11,7 +11,7 @@ Rules:
   * optional time stop (max_hold_seconds)
   * never add to an open position (no averaging down)
   * revenge lock: no re-entry on a mint for a while after a losing exit
-  * max open positions, per-position cap as a share of equity
+  * no open-position count cap; each position is individually sized as a share of equity
   * daily loss halt: blocks new entries, exits keep running
   * write-off: a position whose price disappears is closed at zero, not forgotten
   * fail closed: bad prices and sub-minimum tickets are skipped, never forced
@@ -38,7 +38,6 @@ ExitFill = Callable[[str, float], float]  # (mint, mark_price) -> price actually
 @dataclass(frozen=True)
 class RiskConfig:
     start_cash: float = 1000.0  # USD bankroll the book models; set it to what you really risk
-    max_positions: int = 4
     max_position_pct: float = 0.08  # share of equity per name at full conviction
     min_notional: float = 25.0  # below this a ticket is not worth the fees
     fee_rate: float = 0.003  # per side, covers DEX + bot fee estimate; tune to your real costs
@@ -78,8 +77,6 @@ class RiskConfig:
                 raise ValueError(f"risk.{name} must be a finite number")
         if self.start_cash <= 0:
             raise ValueError("risk.start_cash must be greater than zero")
-        if not isinstance(self.max_positions, int) or isinstance(self.max_positions, bool) or self.max_positions < 1:
-            raise ValueError("risk.max_positions must be a positive integer")
         if not 0 < self.max_position_pct <= 1:
             raise ValueError("risk.max_position_pct must be in (0, 1]")
         if self.min_notional <= 0:
@@ -254,8 +251,6 @@ def check_entry(cfg: RiskConfig, book: Book, symbol: str, score: float, now: flo
     if lock is not None and now < lock:
         mins = (lock - now) / 60
         return ("skip", "revenge_lock", f"No trade on {name}. Revenge lock for another {mins:.0f} min after a losing exit.")
-    if len(book.positions) >= cfg.max_positions:
-        return ("skip", "max_positions", f"No trade on {name}. Book limit is {cfg.max_positions} names.")
     return None
 
 
@@ -564,8 +559,6 @@ def flatten(cfg: RiskConfig, book: Book, prices: Mapping[str, float], now: float
 def audit(cfg: RiskConfig, book: Book) -> list[str]:
     """Invariant check. An empty list means the book obeys its own rules."""
     problems: list[str] = []
-    if len(book.positions) > cfg.max_positions:
-        problems.append(f"{len(book.positions)} positions open, limit is {cfg.max_positions}.")
     for pos in book.positions.values():
         name = pos.label or pos.symbol
         if pos.entry_pct > cfg.max_position_pct + 1e-6:
