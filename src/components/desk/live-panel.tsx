@@ -57,7 +57,6 @@ function LiveSheet({ onClose }: { onClose: () => void }) {
   const deskPubkey = useLive((s) => s.deskPubkey);
   const solPerTrade = useLive((s) => s.solPerTrade);
   const slippageBps = useLive((s) => s.slippageBps);
-  const maxPositions = useLive((s) => s.maxPositions);
   const dailyLossSol = useLive((s) => s.dailyLossSol);
   const sol = useLive((s) => s.sol);
   const dayPnlSol = useLive((s) => s.dayPnlSol);
@@ -74,7 +73,6 @@ function LiveSheet({ onClose }: { onClose: () => void }) {
   const [fund, setFund] = useState("0.1");
   const [ticket, setTicket] = useState(String(solPerTrade));
   const [slip, setSlip] = useState(String(slippageBps));
-  const [names, setNames] = useState(String(maxPositions));
   const [loss, setLoss] = useState(String(dailyLossSol));
   const [revealed, setRevealed] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -381,7 +379,7 @@ function LiveSheet({ onClose }: { onClose: () => void }) {
 
           <section className="mt-6 border-t border-line pt-4">
             <h3 className="text-sm font-medium">Limits</h3>
-            <p className="mt-1 text-xs text-dim">Size is the smaller of your ticket and 8% of the signer balance, leaving 0.02 SOL for fees. Hard stop −6%. Trail after +12%.</p>
+            <p className="mt-1 text-xs text-dim">No position-count cap. Each ticket is the smaller of your requested size and 8% of signer balance, with 0.02 SOL reserved for fees. Hard stop −6%. Trail after +12%.</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <label className="text-xs text-muted">
                 SOL per trade
@@ -397,14 +395,6 @@ function LiveSheet({ onClose }: { onClose: () => void }) {
                   const next = Math.round(clampNum(slip, 30, 500, slippageBps));
                   patch({ slippageBps: next });
                   setSlip(String(next));
-                }} inputMode="numeric" className={cn(field, "mt-1")} />
-              </label>
-              <label className="text-xs text-muted">
-                Max names
-                <input value={names} onChange={(event) => setNames(event.target.value)} onBlur={() => {
-                  const next = Math.round(clampNum(names, 1, 4, maxPositions));
-                  patch({ maxPositions: next });
-                  setNames(String(next));
                 }} inputMode="numeric" className={cn(field, "mt-1")} />
               </label>
               <label className="text-xs text-muted">

@@ -59,7 +59,6 @@ export type LiveData = {
   deskPubkey: string;
   solPerTrade: number;
   slippageBps: number;
-  maxPositions: number;
   dailyLossSol: number;
   dayKey: string;
   dayPnlSol: number;
@@ -96,7 +95,6 @@ function initial(): LiveData {
     deskPubkey: "",
     solPerTrade: 0.05,
     slippageBps: 150,
-    maxPositions: 2,
     dailyLossSol: 0.2,
     dayKey: today(),
     dayPnlSol: 0,
@@ -137,7 +135,6 @@ export const useLive = create<LiveState>()(
         deskPubkey: state.deskPubkey,
         solPerTrade: state.solPerTrade,
         slippageBps: state.slippageBps,
-        maxPositions: state.maxPositions,
         dailyLossSol: state.dailyLossSol,
         dayKey: state.dayKey,
         dayPnlSol: state.dayPnlSol,

@@ -368,7 +368,7 @@ function Metrics() {
     <section className="grid shrink-0 grid-cols-2 gap-2 px-3 lg:grid-cols-4" aria-label="Balance">
       <Metric label="Balance" value={money(equity)} note={pct(startCash ? delta / startCash : 0) + " session"} noteClass={delta >= 0 ? "text-up" : "text-down"} />
       <Metric label="Cash" value={money(cash)} note="Undeployed" noteClass="text-muted" />
-      <Metric label="Open risk" value={money(deployed)} note={`${opens.length} names · 8% cap each`} noteClass="text-muted" />
+      <Metric label="Open risk" value={money(deployed)} note={`${opens.length} names · no name-count cap`} noteClass="text-muted" />
       <Metric label="Fills / kills" value={`${stats.buys} / ${stats.killed}`} note={`${stats.stops} stops · ${stats.trails} trails`} noteClass="text-muted" />
     </section>
   );
@@ -603,7 +603,6 @@ function ManualScan() {
   const sol = useLive((state) => state.sol);
   const halted = useLive((state) => state.halted);
   const positions = useLive((state) => state.positions);
-  const maxPositions = useLive((state) => state.maxPositions);
   const solPerTrade = useLive((state) => state.solPerTrade);
   const locks = useLive((state) => state.locks);
 
@@ -636,7 +635,6 @@ function ManualScan() {
       if (halted) executorIssues.push(halted);
       if (positions.some((position) => position.mint === pair.mint)) executorIssues.push("This mint is already open.");
       if ((locks[pair.mint] ?? 0) > Date.now()) executorIssues.push("This mint is in the revenge lock.");
-      if (positions.length >= maxPositions) executorIssues.push(`Live book is full (${maxPositions} positions).`);
       if (!owner) executorIssues.push("No signer address is configured.");
       if (!armed) executorIssues.push("Live is disarmed.");
       if (ticket === null) executorIssues.push("Wallet balance has not been refreshed.");
@@ -647,7 +645,6 @@ function ManualScan() {
         ...(halted ? [halted] : []),
         ...(positions.some((position) => position.mint === pair.mint) ? ["This mint is already open."] : []),
         ...((locks[pair.mint] ?? 0) > Date.now() ? ["This mint is in the revenge lock."] : []),
-        ...(positions.length >= maxPositions ? [`Position limit reached (${maxPositions}).`] : []),
         ...(ticket !== null && ticket < MIN_TICKET_SOL ? [`Risk-sized ticket is below ${MIN_TICKET_SOL} SOL.`] : []),
       ];
       setResult({

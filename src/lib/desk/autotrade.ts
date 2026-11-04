@@ -302,10 +302,6 @@ async function cycle() {
         liveSay("logger", "note", pair.symbol, `[live] Logged rejection. ${block}`, "work");
         continue;
       }
-      if (useLive.getState().positions.length >= useLive.getState().maxPositions) {
-        useLive.getState().patch({ status: `Book is full (${useLive.getState().maxPositions}). No new buys.` });
-        return;
-      }
 
       const screen = await screenMint({ data: { mint: pair.mint, venue: pair.venue, includeCreatorHistory: true } });
       if (!screen.ok) {
