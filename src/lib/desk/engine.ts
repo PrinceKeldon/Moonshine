@@ -21,7 +21,6 @@ export const MINUTE = 60_000;
 /** One session. Day and night are this same 24h clock. */
 export const SESSION = 24 * 60 * MINUTE;
 export const NIGHT = SESSION;
-export const MAX_POSITIONS = 4;
 export const MAX_PCT = 0.08;
 export const PAPER_MIN_SCORE = 0.35;
 export const HARD_STOP = -0.06;
@@ -323,16 +322,6 @@ function runPipeline(s: DeskState, pair: Pair) {
     s.stats.skips += 1;
     s.stats.revengeBlocks += 1;
     const reason = `No trade. Revenge lock on ${pair.symbol} for the rest of this 24h session. The last exit lost money.`;
-    say(s, "executor", "skip", pair.symbol, reason, "kill");
-    say(s, "logger", "note", pair.symbol, `Logged skip. ${reason}`, "work");
-    decide(s, pair.symbol, pair.mint, "skip", reason);
-    rememberTape(s, pair, "skip", reason, view.score);
-    return;
-  }
-
-  if (s.opens.length >= MAX_POSITIONS) {
-    s.stats.skips += 1;
-    const reason = `No trade. ${MAX_POSITIONS} names is the book limit. Unused capital stays unused.`;
     say(s, "executor", "skip", pair.symbol, reason, "kill");
     say(s, "logger", "note", pair.symbol, `Logged skip. ${reason}`, "work");
     decide(s, pair.symbol, pair.mint, "skip", reason);
