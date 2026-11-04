@@ -4,6 +4,7 @@ import { requestFlatten, requestSell, runLiveCycle } from "@/lib/desk/autotrade"
 import { SOL_MINT, ticketSol } from "@/lib/desk/live-score";
 import { buildSwap } from "@/lib/desk/live-chain";
 import { activeAddress, useLive } from "@/lib/desk/live-store";
+import { AGENT_CONFIG, dynamicTrailGive, MAX_HOLD_SECONDS, TRAIL_ARM } from "@/lib/desk/live-risk";
 import {
   connectPhantom,
   createDeskKey,
@@ -379,7 +380,18 @@ function LiveSheet({ onClose }: { onClose: () => void }) {
 
           <section className="mt-6 border-t border-line pt-4">
             <h3 className="text-sm font-medium">Limits</h3>
-            <p className="mt-1 text-xs text-dim">No position-count cap. Each ticket is the smaller of your requested size and 8% of signer balance, with 0.02 SOL reserved for fees. Hard stop −6%. Trail after +12%.</p>
+            <p className="mt-1 text-xs text-dim">
+              No position-count cap. Each ticket is the smaller of your requested size and 8% of signer balance, with 0.02 SOL reserved for fees.
+            </p>
+            <p className="mt-1 text-xs text-dim">
+              Hard stop −6%; trail arms at +{(TRAIL_ARM * 100).toFixed(0)}% and tightens at +25%, +50%, +100%, and +200% peaks.
+              Full time stop at {Math.round(MAX_HOLD_SECONDS / 60)} min.
+            </p>
+            <p className="mt-1 text-xs text-dim">
+              Agent exits below ${AGENT_CONFIG.minLiqUsd.toLocaleString()} liquidity or below {(AGENT_CONFIG.minLiqFracOfSeen * 100).toFixed(0)}% of best-seen liquidity, or after a {(AGENT_CONFIG.maxGivebackFrac * 100).toFixed(0)}% peak give-back.
+              It scales {(AGENT_CONFIG.forceScalePct * 100).toFixed(0)}% once at +{(AGENT_CONFIG.forceScalePeak * 100).toFixed(0)}% peak, then {(AGENT_CONFIG.timeScalePct * 100).toFixed(0)}% per live check after
+              {" "}{(MAX_HOLD_SECONDS * AGENT_CONFIG.timePressureFrac / 60).toFixed(1)} min below +{(AGENT_CONFIG.softTp * 100).toFixed(0)}%, until the full time stop.
+            </p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <label className="text-xs text-muted">
                 SOL per trade
@@ -492,6 +504,11 @@ function LiveSheet({ onClose }: { onClose: () => void }) {
                         </div>
                         <p className={cn("num font-mono text-xs", pnl >= 0 ? "text-up" : "text-down")}>
                           {pct(pnl)} · {pos.solIn.toFixed(3)} SOL in
+                        </p>
+                        <p className="text-xs text-muted">
+                          {pos.trailArmed && pos.trailStopPct !== null
+                            ? `Trail ${pct(pos.trailStopPct)} · give-back ${pct(dynamicTrailGive(pos.peakPnlPct))}`
+                            : `Hard stop −6% · trail arms +${(TRAIL_ARM * 100).toFixed(0)}%`}
                         </p>
                       </div>
                       <button type="button" onClick={() => requestSell(pos.mint)} className="inline-flex min-h-11 items-center rounded-md border border-line px-3 text-sm">

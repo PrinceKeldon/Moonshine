@@ -83,7 +83,7 @@ export type Decision = {
   t: number;
   symbol: string;
   mint: string;
-  outcome: "kill" | "reject" | "skip" | "buy" | "stop" | "trail";
+  outcome: "kill" | "reject" | "skip" | "buy" | "stop" | "trail" | "time" | "agent_scale" | "agent_flatten";
   reason: string;
 };
 

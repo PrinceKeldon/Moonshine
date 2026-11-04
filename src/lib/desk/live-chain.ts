@@ -55,6 +55,7 @@ export type Marks = {
   ok: boolean;
   solUsd: number | null;
   prices: Record<string, number>;
+  liquidityUsd: Record<string, number>;
 };
 
 async function rpc(method: string, params: unknown[]): Promise<unknown> {
@@ -385,38 +386,43 @@ export const tokenHolding = createServerFn({ method: "POST" })
 
 export const markPrices = createServerFn({ method: "POST" })
   .validator((input: { mints: string[] }) => {
-    const mints = input.mints.map((mint) => mint.trim()).filter((mint) => isSolanaAddress(mint)).slice(0, 20);
+    const mints = input.mints.map((mint) => mint.trim()).filter((mint) => isSolanaAddress(mint));
     return { mints: [...new Set([SOL_MINT, ...mints])] };
   })
   .handler(async ({ data }): Promise<Marks> => {
     const prices: Record<string, number> = {};
+    const liquidityUsd: Record<string, number> = {};
     try {
-      const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${data.mints.join(",")}`, {
-        headers: { accept: "application/json" },
-        signal: AbortSignal.timeout(6000),
-      });
-      if (!res.ok) return { ok: false, solUsd: null, prices };
-      const body: unknown = await res.json();
-      const pairs =
-        body && typeof body === "object" && "pairs" in body && Array.isArray(body.pairs) ? body.pairs : [];
-      const liq = new Map<string, number>();
-      for (const pair of pairs) {
-        if (!pair || typeof pair !== "object") continue;
-        const base = "baseToken" in pair && pair.baseToken && typeof pair.baseToken === "object" ? pair.baseToken : null;
-        const mint = base && "address" in base ? String(base.address) : "";
-        const price = "priceUsd" in pair ? num(pair.priceUsd) : NaN;
-        const pool =
-          "liquidity" in pair && pair.liquidity && typeof pair.liquidity === "object" && "usd" in pair.liquidity
-            ? num(pair.liquidity.usd)
-            : 0;
-        if (!mint || !Number.isFinite(price)) continue;
-        if ((liq.get(mint) ?? -1) > pool) continue;
-        liq.set(mint, Number.isFinite(pool) ? pool : 0);
-        prices[mint] = price;
+      const bestLiquidity = new Map<string, number>();
+      for (let offset = 0; offset < data.mints.length; offset += 15) {
+        const batch = data.mints.slice(offset, offset + 15);
+        const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${batch.join(",")}`, {
+          headers: { accept: "application/json" },
+          signal: AbortSignal.timeout(6000),
+        });
+        if (!res.ok) return { ok: false, solUsd: null, prices: {}, liquidityUsd: {} };
+        const body: unknown = await res.json();
+        const pairs =
+          body && typeof body === "object" && "pairs" in body && Array.isArray(body.pairs) ? body.pairs : [];
+        for (const pair of pairs) {
+          if (!pair || typeof pair !== "object") continue;
+          const base = "baseToken" in pair && pair.baseToken && typeof pair.baseToken === "object" ? pair.baseToken : null;
+          const mint = base && "address" in base ? String(base.address) : "";
+          const price = "priceUsd" in pair ? num(pair.priceUsd) : NaN;
+          const pool =
+            "liquidity" in pair && pair.liquidity && typeof pair.liquidity === "object" && "usd" in pair.liquidity
+              ? num(pair.liquidity.usd)
+              : 0;
+          if (!mint || !Number.isFinite(price)) continue;
+          if ((bestLiquidity.get(mint) ?? -1) > pool) continue;
+          bestLiquidity.set(mint, Number.isFinite(pool) ? pool : 0);
+          prices[mint] = price;
+          liquidityUsd[mint] = Number.isFinite(pool) ? pool : 0;
+        }
       }
-      return { ok: true, solUsd: prices[SOL_MINT] ?? null, prices };
+      return { ok: true, solUsd: prices[SOL_MINT] ?? null, prices, liquidityUsd };
     } catch {
-      return { ok: false, solUsd: null, prices };
+      return { ok: false, solUsd: null, prices: {}, liquidityUsd: {} };
     }
   });
 

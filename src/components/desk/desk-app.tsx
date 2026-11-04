@@ -39,6 +39,7 @@ import {
   ticketSol,
 } from "@/lib/desk/live-score";
 import { activeAddress, useLive } from "@/lib/desk/live-store";
+import { AGENT_CONFIG, MAX_HOLD_SECONDS, TRAIL_ARM } from "@/lib/desk/live-risk";
 import { bootDesk, useDesk } from "@/lib/desk/store";
 import type { AgentId, DeskLog, Fill, PublicPairDTO, TapeRow } from "@/lib/desk/types";
 import { cn } from "@/lib/utils";
@@ -673,7 +674,7 @@ function ManualScan() {
           {
             name: "Risk",
             state: "diagnostic",
-            reason: `Read-only risk preflight; not trade approval. ${!filterPassed ? `Live Filter blocked: ${filterIssues.join(" ")} ` : ""}${!analystPassed ? `Analyst score is below ${MIN_LIVE_SCORE.toFixed(2)}. ` : ""}${riskIssues.length ? riskIssues.join(" ") + " " : "Risk checks are clear. "}Hard stop −6%; trail arms +12%; max ${(MAX_PCT * 100).toFixed(0)}% of balance, with ${LIVE_RESERVE_SOL} SOL reserve; daily loss halt ${useLive.getState().dailyLossSol} SOL.`,
+            reason: `Read-only risk preflight; not trade approval. ${!filterPassed ? `Live Filter blocked: ${filterIssues.join(" ")} ` : ""}${!analystPassed ? `Analyst score is below ${MIN_LIVE_SCORE.toFixed(2)}. ` : ""}${riskIssues.length ? riskIssues.join(" ") + " " : "Risk checks are clear. "}Hard stop −6%; trail arms +${(TRAIL_ARM * 100).toFixed(0)}% with dynamic tiers; no position-count cap. Agent flatten below $${AGENT_CONFIG.minLiqUsd.toLocaleString()} liquidity or after ${(AGENT_CONFIG.maxGivebackFrac * 100).toFixed(0)}% give-back, plus scale rules. Full time stop at ${Math.round(MAX_HOLD_SECONDS / 60)} min. Ticket max ${(MAX_PCT * 100).toFixed(0)}% of balance, with ${LIVE_RESERVE_SOL} SOL reserve; daily loss halt ${useLive.getState().dailyLossSol} SOL.`,
           },
         ],
       });

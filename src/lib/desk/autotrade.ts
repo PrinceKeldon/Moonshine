@@ -13,14 +13,21 @@ import {
   MAX_PCT,
 } from "@/lib/desk/live-score";
 import { activeAddress, dayStamp, useLive, type LiveOrder, type LivePosition } from "@/lib/desk/live-store";
+import {
+  dynamicTrailGive,
+  dynamicTrailStop,
+  evaluateLiveAgent,
+  HARD_STOP,
+  MAX_HOLD_SECONDS,
+  partialTokenAmount,
+  TRAIL_ARM,
+} from "@/lib/desk/live-risk";
 import { signAndSend } from "@/lib/desk/solana-wallet";
 import { useDesk } from "@/lib/desk/store";
 import type { AgentId, Decision, DeskLog, PublicPairDTO, Tone } from "@/lib/desk/types";
 
-const HARD_STOP = -0.06;
-const TRAIL_ARM = 0.12;
-const TRAIL_GIVE = 0.06;
 const LOCK_MS = 12 * 60 * 60 * 1000;
+const EPS = 1e-9;
 
 let inflight: Promise<void> | null = null;
 
@@ -57,7 +64,12 @@ async function waitHold(owner: string, mint: string, fallbackRaw: string | null)
   return { ok: false, raw: "0", ui: 0, error: "Token balance did not show." };
 }
 
-async function sell(pos: LivePosition, reason: string) {
+async function sell(
+  pos: LivePosition,
+  reason: string,
+  fraction = 1,
+  outcome?: Decision["outcome"],
+) {
   const state = useLive.getState();
   const owner = activeAddress(state);
   if (!owner) {
@@ -71,8 +83,19 @@ async function sell(pos: LivePosition, reason: string) {
     useLive.getState().pushOrder(order({ side: "sell", symbol: pos.symbol, mint: pos.mint, signature: null, status: "skipped", reason: "No token balance left." }));
     return;
   }
+  if (!/^\d+$/.test(raw)) {
+    useLive.getState().pushOrder(order({ side: "sell", symbol: pos.symbol, mint: pos.mint, signature: null, status: "failed", reason: "Token balance is not a valid raw amount." }));
+    return;
+  }
+  const amount = fraction >= 1 ? BigInt(raw) : partialTokenAmount(raw, fraction);
+  if (amount <= 0n) {
+    useLive.getState().pushOrder(order({ side: "sell", symbol: pos.symbol, mint: pos.mint, signature: null, status: "skipped", reason: "Sell amount rounded below one token unit." }));
+    return;
+  }
+  const totalRaw = BigInt(raw);
+  const soldFraction = Number(amount) / Number(totalRaw);
   const built = await buildSwap({
-    data: { user: owner, inputMint: pos.mint, outputMint: SOL_MINT, amount: raw, slippageBps: useLive.getState().slippageBps },
+    data: { user: owner, inputMint: pos.mint, outputMint: SOL_MINT, amount: String(amount), slippageBps: useLive.getState().slippageBps },
   });
   if (!built.ok || !built.tx) {
     useLive.getState().pushOrder(
@@ -88,7 +111,11 @@ async function sell(pos: LivePosition, reason: string) {
     return;
   }
   const solOut = built.outAmount ? Number(built.outAmount) / 1e9 : 0;
-  const pnlSol = Number.isFinite(solOut) ? solOut - pos.solIn : 0;
+  const costSold = pos.solIn * soldFraction;
+  const pnlSol = Number.isFinite(solOut) ? solOut - costSold : 0;
+  const remainingRaw = totalRaw - amount;
+  const remainingRatio = 1 - soldFraction;
+  const partial = remainingRaw > 0n;
   useLive.setState((current) => {
     const dayKey = dayStamp();
     const sameDay = current.dayKey === dayKey;
@@ -97,9 +124,22 @@ async function sell(pos: LivePosition, reason: string) {
       dayPnlSol <= -current.dailyLossSol
         ? `Halted. Day loss ${dayPnlSol.toFixed(3)} SOL hit the ${current.dailyLossSol} SOL stop. Exits still run.`
         : current.halted;
-    const locks = pnlSol < 0 ? { ...current.locks, [pos.mint]: Date.now() + LOCK_MS } : current.locks;
+    const locks = !partial && pnlSol < 0 ? { ...current.locks, [pos.mint]: Date.now() + LOCK_MS } : current.locks;
+    const positions = partial
+      ? current.positions.map((row) =>
+          row.mint === pos.mint
+            ? {
+                ...row,
+                tokenRaw: String(remainingRaw),
+                tokenUi: row.tokenUi > 0 ? row.tokenUi * remainingRatio : 0,
+                solIn: row.solIn * remainingRatio,
+                scaled1: true,
+              }
+            : row,
+        )
+      : current.positions.filter((row) => row.mint !== pos.mint);
     return {
-      positions: current.positions.filter((row) => row.mint !== pos.mint),
+      positions,
       dayKey,
       dayPnlSol,
       halted,
@@ -113,20 +153,21 @@ async function sell(pos: LivePosition, reason: string) {
       mint: pos.mint,
       signature: sent.signature,
       status: "filled",
-      reason,
+      reason: partial ? `${reason} Sold ${(soldFraction * 100).toFixed(1)}%; remaining position stays monitored.` : reason,
     }),
   );
   const isStop = reason.toLowerCase().includes("hard stop");
   const isTrail = reason.toLowerCase().includes("trail");
+  const decisionOutcome = outcome ?? (isStop ? "stop" : isTrail ? "trail" : "skip");
   liveSay(
     "risk",
     isStop ? "stop" : isTrail ? "trail" : "note",
     pos.symbol,
     `[live] ${reason}`,
     isStop ? "kill" : "pass",
-    { mint: pos.mint, outcome: isStop ? "stop" : isTrail ? "trail" : "skip" },
+    { mint: pos.mint, outcome: decisionOutcome },
   );
-  liveSay("logger", "note", pos.symbol, `[live] Logged exit. ${pos.symbol}: ${reason}`, "work");
+  liveSay("logger", "note", pos.symbol, `[live] Logged ${partial ? "scale" : "exit"}. ${pos.symbol}: ${reason}`, "work");
 }
 
 async function buy(pair: PublicPairDTO, sol: number, note: string) {
@@ -172,6 +213,9 @@ async function buy(pair: PublicPairDTO, sol: number, note: string) {
     peakPnlPct: 0,
     trailArmed: false,
     trailStopPct: null,
+    liquidityUsd: 0,
+    bestLiquidityUsd: 0,
+    scaled1: false,
   };
   useLive.setState((current) => ({
     positions: [...current.positions.filter((row) => row.mint !== pair.mint), position],
@@ -217,17 +261,32 @@ async function cycle() {
           if (!price || !pos.entryPriceUsd) return pos;
           const pnl = price / pos.entryPriceUsd - 1;
           const peak = Math.max(pos.peakPnlPct, pnl);
+          const liquidityUsd = marks.liquidityUsd[pos.mint] ?? 0;
+          const bestLiquidityUsd = Math.max(pos.bestLiquidityUsd ?? 0, liquidityUsd);
           let trailArmed = pos.trailArmed;
           let trailStop = pos.trailStopPct;
           if (!trailArmed && peak >= TRAIL_ARM) {
             trailArmed = true;
-            trailStop = peak - TRAIL_GIVE;
-            liveSay("risk", "arm", pos.symbol, `[live] Trail armed on ${pos.symbol}. Peak ${(peak * 100).toFixed(1)}%.`, "work");
+            const give = dynamicTrailGive(peak);
+            trailStop = dynamicTrailStop(peak);
+            liveSay("risk", "arm", pos.symbol, `[live] Trail armed on ${pos.symbol}. Peak ${(peak * 100).toFixed(1)}%, give-back ${(give * 100).toFixed(1)}%, stop ${(trailStop * 100).toFixed(1)}%.`, "work");
           } else if (trailArmed && trailStop !== null) {
-            const ratcheted = peak - TRAIL_GIVE;
-            if (ratcheted > trailStop + 0.01) trailStop = ratcheted;
+            const give = dynamicTrailGive(peak);
+            const ratcheted = dynamicTrailStop(peak);
+            if (ratcheted > trailStop + EPS) {
+              liveSay("risk", "arm", pos.symbol, `[live] Trail tightened on ${pos.symbol}. Peak ${(peak * 100).toFixed(1)}%, give-back ${(give * 100).toFixed(1)}%, stop ${(trailStop * 100).toFixed(1)}% → ${(ratcheted * 100).toFixed(1)}%.`, "work");
+            }
+            trailStop = Math.max(trailStop, ratcheted);
           }
-          return { ...pos, priceUsd: price, peakPnlPct: peak, trailArmed, trailStopPct: trailStop };
+          return {
+            ...pos,
+            priceUsd: price,
+            peakPnlPct: peak,
+            trailArmed,
+            trailStopPct: trailStop,
+            liquidityUsd,
+            bestLiquidityUsd,
+          };
         });
         useLive.getState().patch({ positions });
       }
@@ -240,13 +299,29 @@ async function cycle() {
       const pnl = pos.entryPriceUsd > 0 ? pos.priceUsd / pos.entryPriceUsd - 1 : 0;
       const trailHit = pos.trailArmed && pos.trailStopPct !== null && pnl <= pos.trailStopPct;
       const stopHit = pnl <= HARD_STOP;
-      if (flatten || forced.has(pos.mint) || stopHit || trailHit) {
-        const reason = flatten || forced.has(pos.mint)
-          ? `Flat ${pos.symbol}. Sold back to SOL.`
-          : stopHit
-            ? `Hard stop. ${pos.symbol} marked ${(pnl * 100).toFixed(1)}%.`
-            : `Trail stop. ${pos.symbol} marked ${(pnl * 100).toFixed(1)}%.`;
-        await sell(pos, reason);
+      const nowMs = Date.now();
+      const timeHit = nowMs - pos.openedAt >= MAX_HOLD_SECONDS * 1000;
+      if (flatten || forced.has(pos.mint)) {
+        await sell(pos, `Flat ${pos.symbol}. Sold back to SOL.`);
+      } else if (stopHit) {
+        await sell(pos, `Hard stop. ${pos.symbol} marked ${(pnl * 100).toFixed(1)}%.`);
+      } else if (timeHit) {
+        await sell(pos, `Time stop. ${pos.symbol} held ${((nowMs - pos.openedAt) / 60_000).toFixed(1)} min (limit 8 min).`, 1, "time");
+      } else if (trailHit) {
+        await sell(pos, `Trail stop. ${pos.symbol} marked ${(pnl * 100).toFixed(1)}%.`);
+      } else {
+        const agentAction = evaluateLiveAgent(
+          pos,
+          pnl,
+          pos.liquidityUsd ?? 0,
+          pos.bestLiquidityUsd ?? pos.liquidityUsd ?? 0,
+          nowMs,
+        );
+        if (agentAction?.kind === "flatten") {
+          await sell(pos, agentAction.reason, 1, agentAction.outcome);
+        } else if (agentAction?.kind === "scale") {
+          await sell(pos, agentAction.reason, agentAction.fraction, agentAction.outcome);
+        }
       }
     }
 

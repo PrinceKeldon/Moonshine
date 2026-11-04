@@ -39,7 +39,10 @@ export type LivePosition = {
   peakPnlPct: number;
   trailArmed: boolean;
   trailStopPct: number | null;
-};
+  liquidityUsd?: number;
+  bestLiquidityUsd?: number;
+  scaled1?: boolean;
+}
 
 export type LiveOrder = {
   id: string;
