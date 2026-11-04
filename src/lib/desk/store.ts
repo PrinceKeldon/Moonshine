@@ -9,6 +9,7 @@ import {
   MINUTE,
   stepMinute,
 } from "@/lib/desk/engine";
+import { migrateDesk } from "@/lib/desk/store-migrations";
 import type { AgentId, Decision, DeskLog, DeskState, Pair, PublicTapeResult, Tone, WatchSnapshot } from "@/lib/desk/types";
 
 const memory = new Map<string, string>();
@@ -241,15 +242,8 @@ export const useDesk = create<DeskState & DeskActions>()(
     }),
     {
       name: "keel-desk-v1",
-      version: 3,
-      migrate: (persisted: unknown) => {
-        const old = persisted && typeof persisted === "object" ? (persisted as Partial<DeskState>) : {};
-        return {
-          ...createDesk(),
-          watchAddress: typeof old.watchAddress === "string" ? old.watchAddress : "",
-          watch: old.watch ?? null,
-        };
-      },
+      version: 4,
+      migrate: migrateDesk,
       skipHydration: true,
       storage: createJSONStorage(() => safeStorage),
       partialize: (state) => {

@@ -36,7 +36,7 @@ export const AGENT_META: readonly { id: AgentId; name: string; duty: string }[] 
   { id: "scout", name: "Scout", duty: "Pump.fun and Raydium, as they print" },
   { id: "filter", name: "Filter", duty: "Five gates. One miss ends it" },
   { id: "analyst", name: "Analyst", duty: "Paper ≥0.35 · live ≥0.45" },
-  { id: "executor", name: "Executor", duty: "Cleared names only. Max 8%" },
+  { id: "executor", name: "Executor", duty: "Cleared names only. No count cap" },
   { id: "risk", name: "Risk", duty: "−6% hard. Trail only after +12%" },
   { id: "logger", name: "Logger", duty: "Every fill and every rejection" },
 ];
