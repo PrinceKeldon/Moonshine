@@ -35,7 +35,6 @@ fake_volume:
   enabled: true
   # Heuristics: high volume with very low unique makers or extreme buy/sell imbalance
   min_volume_usd_for_check: 50000
-  max_unique_makers_ratio: 0.05      # if unique txns / volume too low → suspicious
   extreme_buy_sell_ratio: 0.95       # >95% buys or sells → possible wash
 
 # --- Filters (applied before deep checks) ---
@@ -62,12 +61,16 @@ older_tokens:
 
 # --- Blacklists ---
 blacklists:
-  coins_file: "data/blacklist_coins.txt"
-  devs_file: "data/blacklist_devs.txt"
+  coins_file: "data/coin_blacklist.json"
+  devs_file: "data/dev_blacklist.json"
   auto_add_fake_volume: false
-  auto_add_bundle: false
+  auto_add_bundles: false
+  auto_add_rugs: true
 
 # --- Telegram ---
+# Prefer the TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID environment variables over
+# writing secrets here: this file is tracked by git. Alerts turn on by themselves
+# once both values are set; add `enabled: false` to mute.
 telegram:
   bot_token: ""
   chat_id: ""

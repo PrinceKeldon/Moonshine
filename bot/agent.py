@@ -14,7 +14,7 @@ and Telegram paths stay the same.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 from typing import Any, Mapping
 
 from bot.ledger import Decision
@@ -139,8 +139,8 @@ def evaluate_position(
             )
             actions.append(("scale", "agent_force_scale", reason, acfg.force_scale_pct))
 
-    # 4. Soft time pressure
-    if rcfg.max_hold_seconds > 0:
+    # 4. Soft time pressure: one trim per position, not one per cycle
+    if rcfg.max_hold_seconds > 0 and not pos.time_scaled:
         held = now - pos.opened_at
         limit = rcfg.max_hold_seconds * acfg.time_pressure_frac
         if held >= limit and pnl < acfg.soft_tp:
@@ -197,9 +197,18 @@ def apply_agent(
                     decisions.append(d)
                 break
             if kind == "scale":
+                # The time-pressure trim is not part of the TP schedule: it must not
+                # mark TP1 as taken, and it fires once per position.
+                is_time = code == "agent_time_pressure"
                 book, ds = _partial_close(
-                    rcfg, book, symbol, fill, now, "scale1", reason, fraction
+                    rcfg, book, symbol, fill, now, "scale1", reason, fraction,
+                    set_scaled=not is_time,
                 )
+                if is_time and symbol in book.positions:
+                    book = replace(book, positions={
+                        **book.positions,
+                        symbol: replace(book.positions[symbol], time_scaled=True),
+                    })
                 for d in ds:
                     if d.outcome == "scale1":
                         d = Decision(

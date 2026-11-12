@@ -152,6 +152,7 @@ class Position:
     original_qty: float = 0.0          # qty at full entry (for reporting)
     scaled_1: bool = False             # first take-profit already taken
     scaled_2: bool = False             # second take-profit already taken
+    time_scaled: bool = False          # agent time-pressure scale-out already taken (once per position)
 
     @property
     def pnl_pct(self) -> float:
@@ -301,8 +302,12 @@ def _partial_close(
     kind: str,
     reason: str,
     fraction: float,
+    set_scaled: bool = True,
 ) -> tuple[Book, list[Decision]]:
-    """Sell a fraction of the open position. Remaining cost basis is scaled down."""
+    """Sell a fraction of the open position. Remaining cost basis is scaled down.
+
+    ``set_scaled=False`` leaves the scaled_1 / scaled_2 flags alone, for exits that
+    are not the take-profit schedule (the agent's time-pressure trim)."""
     pos = book.positions[symbol]
     sell_qty = pos.qty * fraction
     if sell_qty <= 0 or pos.qty <= 0:
@@ -361,9 +366,9 @@ def _partial_close(
     else:
         # Update remaining position
         new_pos = replace(pos, qty=remaining_qty, cost=remaining_cost)
-        if kind == "scale1":
+        if set_scaled and kind == "scale1":
             new_pos = replace(new_pos, scaled_1=True)
-        elif kind == "scale2":
+        elif set_scaled and kind == "scale2":
             new_pos = replace(new_pos, scaled_2=True)
         new = replace(
             book,

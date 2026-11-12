@@ -107,6 +107,29 @@ class AgentRules(unittest.TestCase):
         self.assertEqual(actions[0][:2], ("scale", "agent_time_pressure"))
         self.assertEqual(actions[0][3], 0.50)
 
+    def test_time_pressure_fires_once_and_does_not_mark_tp1(self):
+        rc = replace(self.rc, max_hold_seconds=1000)
+        book = self.book
+        sells = 0
+        for step in range(8):
+            now = T0 + 800 + step * 10
+            book, decisions = apply_agent(
+                self.ac, rc, book, {MINT: 102}, {MINT: 50_000}, {MINT: 50_000}, now
+            )
+            sells += len(decisions)
+        pos = book.positions[MINT]
+        self.assertEqual(sells, 1)
+        self.assertAlmostEqual(pos.qty, self.pos.qty * 0.50)
+        self.assertTrue(pos.time_scaled)
+        self.assertFalse(pos.scaled_1)
+
+    def test_old_book_without_time_scaled_field_still_loads(self):
+        from bot.risk import book_from_dict, book_to_dict
+
+        data = book_to_dict(self.book)
+        data["positions"][MINT].pop("time_scaled")
+        self.assertFalse(book_from_dict(data).positions[MINT].time_scaled)
+
     def test_disabled_agent_has_no_actions(self):
         ac = replace(self.ac, enabled=False)
         pos = replace(self.pos, peak_pnl=0.50)

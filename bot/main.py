@@ -178,6 +178,7 @@ async def process_pair(
             if bl.get("auto_add_bundles"):
                 logger.warning(f"Bundle → blacklist {mint}")
                 _blacklist_coin(cfg, coin_bl, key)
+                await tg.notify_blacklist(mint, str(bundle))
             else:
                 logger.warning(f"Bundle → skip {mint} (not blacklisted)")
             await store.log_event(mint, "bundle", {"report": report.get("risks")})

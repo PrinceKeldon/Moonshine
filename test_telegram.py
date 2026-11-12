@@ -1,19 +1,21 @@
 import asyncio
 from pathlib import Path
 
-import yaml
 from telegram import Bot
+
+from bot.config import load_config
 
 
 def load_telegram_config() -> dict:
-    config = yaml.safe_load(Path(__file__).with_name("config.yaml").read_text())
+    # load_config applies TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID overrides.
+    config = load_config(Path(__file__).with_name("config.yaml"))
     telegram = config["telegram"]
     token = str(telegram.get("bot_token", ""))
     chat_id = str(telegram.get("chat_id", ""))
     if not token or token == "YOUR_TELEGRAM_BOT_TOKEN":
-        raise ValueError("Set telegram.bot_token in config.yaml first")
+        raise ValueError("Set TELEGRAM_BOT_TOKEN (or telegram.bot_token in config.yaml) first")
     if not chat_id or chat_id == "YOUR_CHAT_ID":
-        raise ValueError("Set telegram.chat_id in config.yaml first")
+        raise ValueError("Set TELEGRAM_CHAT_ID (or telegram.chat_id in config.yaml) first")
     return {"token": token, "chat_id": chat_id}
 
 

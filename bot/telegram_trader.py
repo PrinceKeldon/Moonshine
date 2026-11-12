@@ -17,7 +17,13 @@ class TelegramTrader:
     def __init__(self, cfg: dict[str, Any], dry_run: bool = True):
         self.cfg = cfg
         self.dry_run = dry_run
-        self.enabled = cfg.get("enabled", False) and bool(cfg.get("bot_token"))
+        # Enabled by default once a token and chat id are present. Set
+        # telegram.enabled: false to mute without deleting credentials.
+        self.enabled = (
+            bool(cfg.get("enabled", True))
+            and bool(cfg.get("bot_token"))
+            and bool(cfg.get("chat_id"))
+        )
         self.bot: Any = None
         if self.enabled and Bot is not None:
             self.bot = Bot(token=cfg["bot_token"])

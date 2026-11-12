@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import yaml
 from loguru import logger
@@ -12,6 +13,25 @@ from loguru import logger
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = ROOT / "config.yaml"
 
+# Environment variables that override config.yaml, so secrets never have to be
+# written into a file that can be committed.
+ENV_OVERRIDES = {
+    "TELEGRAM_BOT_TOKEN": ("telegram", "bot_token"),
+    "TELEGRAM_CHAT_ID": ("telegram", "chat_id"),
+}
+
+
+def apply_env_overrides(cfg: dict[str, Any], env: Mapping[str, str] | None = None) -> dict[str, Any]:
+    """Copy non-empty ENV_OVERRIDES values into ``cfg`` in place and return it."""
+    env = os.environ if env is None else env
+    for var, (section, key) in ENV_OVERRIDES.items():
+        value = (env.get(var) or "").strip()
+        if value:
+            if not isinstance(cfg.get(section), dict):
+                cfg[section] = {}
+            cfg[section][key] = value
+    return cfg
+
 
 def load_config(path: Path | str = DEFAULT_CONFIG) -> dict[str, Any]:
     path = Path(path)
@@ -19,6 +39,7 @@ def load_config(path: Path | str = DEFAULT_CONFIG) -> dict[str, Any]:
         raise FileNotFoundError(f"Config not found: {path}")
     with open(path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
+    apply_env_overrides(cfg)
     logger.info(f"Loaded config from {path}")
     return cfg
 

@@ -41,8 +41,8 @@ python -m bot.main
 
 ### Telegram + Bonkbot
 
-1. Create a bot with @BotFather → copy the token into `telegram.bot_token`
-2. Start a chat with your bot (or add it to a group) and get the `chat_id`
+1. Create a bot with @BotFather → export the token as `TELEGRAM_BOT_TOKEN` (or, less safely, put it in `telegram.bot_token`; `config.yaml` is tracked by git)
+2. Start a chat with your bot (or add it to a group) and export the `chat_id` as `TELEGRAM_CHAT_ID`. Alerts switch on once both are set; add `enabled: false` under `telegram:` to mute them
 3. In the same chat (or a group where both bots are present) you can also talk to @bonkbot_bot
 4. The default `buy_command_template: "{mint}"` simply pastes the contract address — Bonkbot usually auto-detects it and offers buy buttons.
 5. Change the template if you prefer explicit commands, e.g. `"/buy {mint} 0.1"`
